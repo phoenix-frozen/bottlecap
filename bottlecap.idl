@@ -1,0 +1,79 @@
+struct captable_header_t {
+	//rsa cryptographic stuff
+	uint4096_t tpm_blob;
+	uint4096_t tpm_public;
+	uint4096_t rsa_public;
+	uint32_t   rsa_keysize;
+
+	//aes cryptographic stuff
+	uint128_t  aes_key; //rsa-encrypted
+
+	uint32_t   size; //number of slots in the bottle
+
+	//matching check
+	uint256_t  captable_signature; //rsa-signature of main table
+	uint256_t  header_signature; //rsa-signature of all prevous fields
+};
+
+//TODO: which fields should be encrypted with which keys?
+struct cap_t {
+	uint64_t password;
+	uint64_t rrights; //remote resource rights word
+	uint64_t oid;
+	uint32_t crights; //BottleCap rights word
+	uint160_t issuer; //cap issuer's RSA public key hash
+	uint128_t expiry; //cap expiry time, in 128-bit Unix time
+};
+
+typedef cap_t captable_t;
+
+struct bottle_t {
+	captable_header_t* header;
+	captable_t* table;
+}
+
+//TODO: include an authentication value?
+interface BottleCap {
+	/**
+	 * Initialises a new bottle, in the memory provided.
+	 * header->size should be filled in by the caller.
+	 * 
+	 * @param bottle Pointers to memory to be used for the
+	 *               bottle header and cap table.
+	 * @return Error code.
+	 */
+	int32_t bottle_init(in bottle_t bottle);
+	//TODO: do we need some kind of deletion operation to reclaim
+	//      TPM resources, like monotonic counters?
+
+	/**
+	 * Returns the number of free slots in the bottle.
+	 */
+	uint32_t bottle_query_free_slots(in bottle_t bottle);
+	/**
+	 * Deletes all caps in the bottle whose expiry dates
+	 * are less than or equal to time.
+	 * 
+	 * @param bottle The bottle to operate on.
+	 * @param time   The current time.
+	 * @return       The new number of free slots in the bottle.
+	 */
+	uint32_t bottle_expire(in bottle_t bottle, in uint128_t time);
+
+	//inter-TPM bottle migration
+
+	//add and remove caps to/from a bottle
+
+	/**
+	 * Migrates a capability from one bottle to another.
+	 * 
+	 * @param dest The destination bottle.
+	 * @param src  The source bottle.
+	 * @param idx  In: source cap slot in src. Out: cap slot in dest.
+	 * @param move Whether to delete the original cap.
+	 * @return     Error code.
+	 */
+	int32_t bottle_migrate_cap(in bottle_t dest, in bottle_t src, inout uint32_t idx, in bool move);
+
+	//ask for a cap quote
+};
