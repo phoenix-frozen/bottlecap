@@ -36,6 +36,8 @@
 
 #ifdef _WIN32
 #include "msr.h"
+#else
+#include <linux/delay.h>
 #endif // _WIN32
 
 /* InSecure Kernel state; system state to be restored post-flicker
