@@ -31,19 +31,18 @@ typedef struct {
 	uint32_t     size;  //number of slots in the bottle
 
 	//matching check
-	//TODO: uint256_t    captable_signature; //{main table}_BSK
-	//TODO: uint256_t    header_signature; //{prevous header fields}_BSK
-	sha1hash_t    captable_signature; //{main table}_BSK
-	sha1hash_t    header_signature; //{prevous header fields}_BSK
+	//TODO: uint256_t    captable_signature; //{SHA1(encrypted main table)}_BSK
+	//TODO: uint256_t    header_signature; //{SHA1(header, assuming this field is zero)}_BSK
+	sha1hash_t    captable_signature; //{SHA1(main table)}_BSK
+	sha1hash_t    header_signature; //{SHA1(header, assuming this field is zero)}_BSK
 
-	//TODO: need some kind of password-check field
 
 	uint32_t magic_bottom; //0x909ACE17
 } bottle_header_t;
 
 struct bottle_t {
 	bottle_header_t* header;   //bottle header structure
-	aeskey_t         password; //password which will be XOR'd into BEK TODO: is this a good idea?
+	//TODO: aeskey_t         password; //password which will be XOR'd into BEK; is this a good idea?
 	cap_t*           table;    //{Caps}_BEK
 };
 
