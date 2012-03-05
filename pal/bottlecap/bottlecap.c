@@ -1,5 +1,7 @@
 #include "bottlecap.h"
-#include "sha1.h"
+
+#include "../sha1.h"
+#include "../string.h"
 
 #include "assert.h"
 
@@ -23,24 +25,28 @@ static int32_t check_bottle(bottle_t* bottle) {
 
 //decrypt the captable in-place
 static int32_t decrypt_bottle(bottle_t* bottle) {
+	assert(bottle != NULL);
 	//TODO: noop for the moment
 	return ESUCCESS;
 }
 
 //encrypt the captable in-place
 static int32_t encrypt_bottle(bottle_t* bottle) {
+	assert(bottle != NULL);
 	//TODO: noop for the moment
 	return ESUCCESS;
 }
 
 static int32_t sign_bottle(bottle_t* bottle) {
+	assert(bottle != NULL);
+
 	//TODO generate real signatures
 	//table
 	sha1hash_t sha1data;
-	sha1_buffer(bottle->table, size * sizeof(cap_t), sha1data);
+	sha1_buffer((unsigned char*)(bottle->table), bottle->header->size * sizeof(cap_t), sha1data);
 	memcpy(bottle->header->captable_signature, sha1data, sizeof(sha1hash_t));
 	//header
-	sha1_buffer(bottle->header, sizeof(bottle_header_t), sha1data);
+	sha1_buffer((unsigned char*)bottle->header, sizeof(bottle_header_t), sha1data);
 	memcpy(bottle->header->header_signature, sha1data, sizeof(sha1hash_t));
 
 	return ESUCCESS;
@@ -48,19 +54,22 @@ static int32_t sign_bottle(bottle_t* bottle) {
 
 static int32_t bottle_op_prologue(bottle_t* bottle) {
 	//check the bottle is valid, usable on this machine, signed, etc
-	DO_OR_BAIL(check_bottle, &bottle);
+	DO_OR_BAIL(check_bottle, bottle);
 
 	//decrypt the captable
-	DO_OR_BAIL(decrypt_bottle, &bottle);
+	DO_OR_BAIL(decrypt_bottle, bottle);
+
+	return ESUCCESS;
 }
 static int32_t bottle_op_epilogue(bottle_t* bottle) {
 	//encrypt the captable
-	DO_OR_BAIL(encrypt_bottle, &bottle);
+	DO_OR_BAIL(encrypt_bottle, bottle);
 
 	//generate signatures
-	DO_OR_BAIL(sign_bottle, &bottle);
+	DO_OR_BAIL(sign_bottle, bottle);
 
 	//TODO: what happens if these fail?
+	return ESUCCESS;
 }
 
 //BOTTLE CREATION/DELETION
@@ -69,7 +78,7 @@ int32_t bottle_init(bottle_t bottle) {
 		return -ENOMEM;
 
 	//impose a maximum size of one page for a table
-	if(bottle.header->size > MAX_TABLE_LENGHTH)
+	if(bottle.header->size > MAX_TABLE_LENGTH)
 		return -ENOMEM;
 
 	//first, clear the header and the table first
@@ -84,7 +93,7 @@ int32_t bottle_init(bottle_t bottle) {
 	if(flags != 0)
 		return -ENOTSUP;
 	//TODO: use TPM's RNG to generate BEK
-	bottle.header->bek   = 0;
+	memset(&(bottle.header->bek), 0, sizeof(bottle.header->bek));
 
 	//insert magic numbers
 	bottle.header->magic_top = BOTTLE_MAGIC_TOP;
@@ -110,7 +119,7 @@ int32_t bottle_query_free_slots(bottle_t bottle, uint32_t* slots) {
 
 	uint32_t free_slots = 0;
 	for(int i = 0; i < bottle.header->size; i++) {
-		if(bottle->table[i].expiry == 0) {
+		if(bottle.table[i].expiry == 0) {
 			free_slots++;
 		}
 	}
@@ -118,6 +127,8 @@ int32_t bottle_query_free_slots(bottle_t bottle, uint32_t* slots) {
 	*slots = free_slots;
 
 	DO_OR_BAIL(bottle_op_epilogue, &bottle);
+
+	return ESUCCESS;
 }
 int32_t bottle_expire(bottle_t bottle, uint64_t time, uint32_t* slots) {
 	if(slots == NULL)
@@ -127,10 +138,10 @@ int32_t bottle_expire(bottle_t bottle, uint64_t time, uint32_t* slots) {
 
 	uint32_t free_slots = 0;
 	for(int i = 0; i < bottle.header->size; i++) {
-		if(bottle->table[i].expiry <= time) {
-			bottle->table[i].expiry = 0;
+		if(bottle.table[i].expiry <= time) {
+			bottle.table[i].expiry = 0;
 		}
-		if(bottle->table[i].expiry == 0) {
+		if(bottle.table[i].expiry == 0) {
 			free_slots++;
 		}
 	}
@@ -138,6 +149,8 @@ int32_t bottle_expire(bottle_t bottle, uint64_t time, uint32_t* slots) {
 	*slots = free_slots;
 
 	DO_OR_BAIL(bottle_op_epilogue, &bottle);
+
+	return ESUCCESS;
 }
 
 //INTER-MACHINE BOTTLE MIGRATION FUNCTIONS

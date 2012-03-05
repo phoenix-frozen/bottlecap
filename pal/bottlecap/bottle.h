@@ -13,6 +13,8 @@
 #define BOTTLE_FLAG_SINGLETON  BIT(0) //this bottle uses monotonic counters to ensure non-copying
 #define BOTTLE_FLAG_MIGRATABLE BIT(1) //this bottle may be migrated to another TPM
 
+typedef int32_t bool;
+
 typedef struct {
 	uint32_t magic_top; //0x80771ECA
 
@@ -40,11 +42,11 @@ typedef struct {
 	uint32_t magic_bottom; //0x909ACE17
 } bottle_header_t;
 
-struct bottle_t {
+typedef struct {
 	bottle_header_t* header;   //bottle header structure
 	//TODO: aeskey_t         password; //password which will be XOR'd into BEK; is this a good idea?
 	cap_t*           table;    //{Caps}_BEK
-};
+} bottle_t;
 
 #endif /* __BOTTLE_H__ */
 

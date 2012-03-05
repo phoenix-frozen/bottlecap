@@ -5,7 +5,7 @@
 
 #include "cap.h"
 
-typedef sha1hash_t uint32_t[5]
+typedef unsigned char sha1hash_t[20];
 
 typedef struct {
 	//TODO: placeholder data structure until I learn a bit more about TPMs
@@ -21,7 +21,7 @@ typedef struct {
 } tpm_aeskey_t;
 
 typedef struct {
-	tpm_encrypted_aeskey_t key; //{key}_[some TPM-bound RSA key]
+	tpm_aeskey_t key; //{key}_[some TPM-bound RSA key]
 	cap_t cap; //{cap}_key
 
 	//represents a cap that is bound/sealed to a TPM state, encrypted

@@ -30,8 +30,10 @@ TARGET_LDS := $(CURDIR)/pal.ld
 
 
 C_SRCS := $(wildcard $(CURDIR)/*.c)
+C_SRCS += $(wildcard $(CURDIR)/bottlecap/*.c)
 S_SRCS := $(wildcard $(CURDIR)/*.S)
 HDRS   := $(wildcard $(CURDIR)/*.h)
+HDRS   += $(wildcard $(CURDIR)/bottlecap/*.h)
 
 OBJS := $(S_SRCS:.S=.o) $(C_SRCS:.c=.o)
 
