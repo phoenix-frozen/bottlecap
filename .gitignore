@@ -4,3 +4,8 @@ cscope*
 *~
 *.elf
 *.bin
+.*.cmd
+*.ko
+*.mod.c
+kmod/.tmp_versions
+[Mm]odule*
