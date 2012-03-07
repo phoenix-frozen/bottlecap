@@ -45,6 +45,7 @@ then
     echo -n A > $SYSFSPATH/control
     cat $SINIT > $SYSFSPATH/data
     echo -n a > $SYSFSPATH/control
+    echo "SINIT $SINIT loaded"
 else
     # Could not find SINIT, check for Intel processor
     if [ `grep Intel /proc/cpuinfo | wc -l` -gt 0 ] ; then
