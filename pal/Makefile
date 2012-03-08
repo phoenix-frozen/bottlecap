@@ -67,21 +67,11 @@ $(TARGET).bin: $(OBJS) $(TARGET).elf
 	    -o $(@D)/$(@F) --oformat binary
 
 $(TARGET).elf: $(OBJS) $(TARGET_LDS)
-	@echo "------------------"
-	echo $(AFLAGS)
-	@echo "------------------"
-	echo $(CFLAGS)
-	@echo "------------------"
 	$(LD) $(LDFLAGS) -T $(TARGET_LDS) -N $(OBJS) \
 	    -o $(@D)/$(@F)
 
 $(TARGET).test.elf: $(TEST_OBJS)
-	@echo "------------------"
-	echo $(AFLAGS)
-	@echo "------------------"
-	echo $(CFLAGS)
-	@echo "------------------"
-	$(LD) $(LDFLAGS) $(TEST_OBJS) \
+	gcc $(LDFLAGS) $(TEST_OBJS) \
 	    -o $(@D)/$(@F)
 
 clean:

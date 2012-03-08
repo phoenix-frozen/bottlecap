@@ -38,16 +38,6 @@
 
 struct slb_perf_vals g_perf;
 
-#ifndef TRUSTSIM
-
-extern uint32_t g_phys_base_addr; /* Declared and populated in asm.S */
-
-unsigned int slb_base_phys() {
-    return g_phys_base_addr;
-}
-
-#endif
-
 static unsigned long long get_runtime(struct st_timer_vars *v) {
     unsigned long long start, end;
     if(!v) { return 0; }

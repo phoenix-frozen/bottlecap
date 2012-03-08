@@ -70,7 +70,8 @@ enum
 #define MIN_LOG_LEVEL 4
 #endif
 
-unsigned int slb_base_phys();
+extern uint32_t g_phys_base_addr; /* Declared and populated in asm.S */
+#define slb_base_phys(...) g_phys_base_addr
 
 /* Routines for execution timing in CPU cycles */
 #ifndef _WIN32
