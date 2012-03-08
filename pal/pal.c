@@ -30,6 +30,7 @@
 #include <printk.h>
 #include <params.h>
 #include <util.h>
+#include <main.h>
 
 #include "sha1.h"
 #include "tpm.h"
@@ -163,9 +164,7 @@ void gdt_debug(void) {
 int pal_main(void) __attribute__ ((section (".text.slb")));
 int pal_main(void)
 {
-    printk("Hello from pal_main()\n");
-
-    return 0;
+    return main();
 }
 
 

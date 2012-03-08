@@ -29,7 +29,7 @@ AFLAGS += -I$(CURDIR)/../common -I$(CURDIR)/../include -I$(CURDIR)/../extra -I$(
 LDFLAGS	+= -melf_i386
 
 TARGET := $(CURDIR)/pal
-TARGET_LDS := $(CURDIR)/pal.ld
+TARGET_LDS := $(CURDIR)/rte/pal.ld
 
 
 C_SRCS := $(wildcard $(CURDIR)/*.c)
