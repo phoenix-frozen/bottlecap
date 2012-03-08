@@ -1,48 +1,66 @@
-#include "bottlecap.h"
+#include <assert.h>
+#include <string.h>
 
 #include "../sha1.h"
-#include "../string.h"
 
-#include "assert.h"
+#include "bottlecap.h"
 
 //max table length is one 4k page for the moment. to be revised
 #define PAGE_SIZE 4096
 #define MAX_TABLE_LENGTH (PAGE_SIZE/sizeof(cap_t))
 
-#define DO_OR_BAIL(op, args...)          \
-do {                                     \
-	int32_t rv = op(args);               \
-	if(rv != ESUCCESS) {                 \
-		return rv;                       \
-	}                                    \
+#define DO_OR_BAIL(e, op, args...)  \
+do {                                \
+	int rv = op(args);              \
+	if(rv != ESUCCESS) {            \
+		return e == 0 ? rv : -e;    \
+	}                               \
 } while (0)
 
 //check the bottle is valid, usable on this machine, signed, etc
-static int32_t check_bottle(bottle_t* bottle) {
+static int check_bottle(bottle_t* bottle) {
+	sha1hash_t sha1data, temp;
+
 	assert(bottle != NULL);
-	return -ENOSYS;
+
+	//TODO real signature checking
+
+	//table
+	sha1_buffer((unsigned char*)(bottle->table), bottle->header->size * sizeof(cap_t), sha1data);
+	DO_OR_BAIL(ESIGFAIL, memcmp, bottle->header->captable_signature, sha1data, sizeof(sha1hash_t));
+
+	//header
+	memcpy(temp, bottle->header->header_signature, sizeof(sha1hash_t)); //copy out header sig...
+	memset(bottle->header->header_signature, 0, sizeof(sha1hash_t)); //... and zero out that field...
+	sha1_buffer((unsigned char*)bottle->header, sizeof(bottle_header_t), sha1data); //... for hashing.
+	memcpy(bottle->header->header_signature, temp, sizeof(sha1hash_t)); //then copy it back in,
+	DO_OR_BAIL(ESIGFAIL, memcmp, temp, sha1data, sizeof(sha1hash_t)); //and do the actual comparison
+
+	return ESUCCESS;
 }
 
 //decrypt the captable in-place
-static int32_t decrypt_bottle(bottle_t* bottle) {
+//assumption: if we return an error code, no encrypted data is exposed
+static int decrypt_bottle(bottle_t* bottle) {
 	assert(bottle != NULL);
 	//TODO: noop for the moment
 	return ESUCCESS;
 }
 
 //encrypt the captable in-place
-static int32_t encrypt_bottle(bottle_t* bottle) {
+static int encrypt_bottle(bottle_t* bottle) {
 	assert(bottle != NULL);
 	//TODO: noop for the moment
 	return ESUCCESS;
 }
 
-static int32_t sign_bottle(bottle_t* bottle) {
+//sign the bottle's current state
+static int sign_bottle(bottle_t* bottle) {
 	assert(bottle != NULL);
 
 	//TODO generate real signatures
-	//table
 	sha1hash_t sha1data;
+	//table
 	sha1_buffer((unsigned char*)(bottle->table), bottle->header->size * sizeof(cap_t), sha1data);
 	memcpy(bottle->header->captable_signature, sha1data, sizeof(sha1hash_t));
 	//header
@@ -52,28 +70,47 @@ static int32_t sign_bottle(bottle_t* bottle) {
 	return ESUCCESS;
 }
 
-static int32_t bottle_op_prologue(bottle_t* bottle) {
+//emergency security-breakage utility function
+static void bottle_annihilate(bottle_t* bottle) {
+	memset(bottle->table, 0, bottle->header->size * sizeof(cap_t));
+	memset(bottle->header, 0, sizeof(*(bottle->header)));
+}
+
+//standard prologue for bottle operations: verify signatures and decrypt
+static int bottle_op_prologue(bottle_t* bottle) {
 	//check the bottle is valid, usable on this machine, signed, etc
-	DO_OR_BAIL(check_bottle, bottle);
+	DO_OR_BAIL(0, check_bottle, bottle);
 
 	//decrypt the captable
-	DO_OR_BAIL(decrypt_bottle, bottle);
+	DO_OR_BAIL(0, decrypt_bottle, bottle);
 
 	return ESUCCESS;
 }
-static int32_t bottle_op_epilogue(bottle_t* bottle) {
+//standard epilogue for bottle operations: encrypt and sign
+static int bottle_op_epilogue(bottle_t* bottle) {
+	int rv;
+	
 	//encrypt the captable
-	DO_OR_BAIL(encrypt_bottle, bottle);
+	rv = encrypt_bottle(bottle);
+	if(rv != ESUCCESS) {
+		//if we can't resecure the bottle, kill it
+		bottle_annihilate(bottle);
+		return rv;
+	}
 
 	//generate signatures
-	DO_OR_BAIL(sign_bottle, bottle);
+	rv = sign_bottle(bottle);
+	if(rv != ESUCCESS) {
+		//if we can't resecure the bottle, kill it
+		bottle_annihilate(bottle);
+		return rv;
+	}
 
-	//TODO: what happens if these fail?
 	return ESUCCESS;
 }
 
 //BOTTLE CREATION/DELETION
-int32_t bottle_init(bottle_t bottle) {
+int bottle_init(bottle_t bottle) {
 	if(bottle.header == NULL || bottle.table == NULL)
 		return -ENOMEM;
 
@@ -99,11 +136,11 @@ int32_t bottle_init(bottle_t bottle) {
 	bottle.header->magic_top = BOTTLE_MAGIC_TOP;
 	bottle.header->magic_bottom = BOTTLE_MAGIC_BOTTOM;
 
-	DO_OR_BAIL(bottle_op_epilogue, &bottle);
+	DO_OR_BAIL(0, bottle_op_epilogue, &bottle);
 
 	return ESUCCESS;
 }
-int32_t bottle_destroy(bottle_t bottle) {
+int bottle_destroy(bottle_t bottle) {
 	//there's really very little to do here
 	//even blowing away the keys would just be for show
 	//TODO: might become useful once we start using counters
@@ -111,14 +148,14 @@ int32_t bottle_destroy(bottle_t bottle) {
 }
 
 //BOTTLE STATE FUNCTIONS
-int32_t bottle_query_free_slots(bottle_t bottle, uint32_t* slots) {
+int bottle_query_free_slots(bottle_t bottle, uint32_t* slots) {
 	if(slots == NULL)
 		return -EINVAL;
 
-	DO_OR_BAIL(bottle_op_prologue, &bottle);
+	DO_OR_BAIL(0, bottle_op_prologue, &bottle);
 
 	uint32_t free_slots = 0;
-	for(int i = 0; i < bottle.header->size; i++) {
+	for(uint32_t i = 0; i < bottle.header->size; i++) {
 		if(bottle.table[i].expiry == 0) {
 			free_slots++;
 		}
@@ -126,18 +163,18 @@ int32_t bottle_query_free_slots(bottle_t bottle, uint32_t* slots) {
 
 	*slots = free_slots;
 
-	DO_OR_BAIL(bottle_op_epilogue, &bottle);
+	DO_OR_BAIL(0, bottle_op_epilogue, &bottle);
 
 	return ESUCCESS;
 }
-int32_t bottle_expire(bottle_t bottle, uint64_t time, uint32_t* slots) {
+int bottle_expire(bottle_t bottle, uint64_t time, uint32_t* slots) {
 	if(slots == NULL)
 		return -EINVAL;
 
-	DO_OR_BAIL(bottle_op_prologue, &bottle);
+	DO_OR_BAIL(0, bottle_op_prologue, &bottle);
 
 	uint32_t free_slots = 0;
-	for(int i = 0; i < bottle.header->size; i++) {
+	for(uint32_t i = 0; i < bottle.header->size; i++) {
 		if(bottle.table[i].expiry <= time) {
 			bottle.table[i].expiry = 0;
 		}
@@ -148,29 +185,29 @@ int32_t bottle_expire(bottle_t bottle, uint64_t time, uint32_t* slots) {
 
 	*slots = free_slots;
 
-	DO_OR_BAIL(bottle_op_epilogue, &bottle);
+	DO_OR_BAIL(0, bottle_op_epilogue, &bottle);
 
 	return ESUCCESS;
 }
 
 //INTER-MACHINE BOTTLE MIGRATION FUNCTIONS
-int32_t bottle_export(bottle_t bottle, tpm_rsakey_t* rsrk, tpm_rsakey_t* brk) {
+int bottle_export(bottle_t bottle, tpm_rsakey_t* rsrk, tpm_rsakey_t* brk) {
 	return -ENOSYS;
 }
-int32_t bottle_import(bottle_t bottle, tpm_rsakey_t* brk) {
+int bottle_import(bottle_t bottle, tpm_rsakey_t* brk) {
 	return -ENOSYS;
 }
 
 //CAP INSERTION/DELETION FUNCTIONS
-int32_t bottle_cap_add(bottle_t bottle, tpm_encrypted_cap_t* cap, uint32_t* slot) {
+int bottle_cap_add(bottle_t bottle, tpm_encrypted_cap_t* cap, uint32_t* slot) {
 	return -ENOSYS;
 }
-int32_t bottle_cap_delete(bottle_t bottle, uint32_t slot) {
+int bottle_cap_delete(bottle_t bottle, uint32_t slot) {
 	return -ENOSYS;
 }
 
 //INTER-BOTTLE CAP MIGRATION
-int32_t bottle_cap_export(bottle_t bottle, uint32_t slot, tpm_rsakey_t* rbrk, bool move, tpm_encrypted_cap_t* cap) {
+int bottle_cap_export(bottle_t bottle, uint32_t slot, tpm_rsakey_t* rbrk, bool move, tpm_encrypted_cap_t* cap) {
 	return -ENOSYS;
 }
 
