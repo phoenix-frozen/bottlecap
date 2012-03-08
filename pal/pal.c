@@ -25,12 +25,14 @@
  */
 
 #include <stdarg.h>
-#include "malloc.h"
-#include "printk.h"
-#include "params.h"
-#include "tpm.h"
+
+#include <malloc.h>
+#include <printk.h>
+#include <params.h>
+#include <util.h>
+
 #include "sha1.h"
-#include "util.h"
+#include "tpm.h"
 
 /**
  * Special global variables used to convey the size of LOW and HIGH
