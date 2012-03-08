@@ -32,7 +32,7 @@
 #ifdef TRUSTSIM
 #include "resume.h" /* cpu_t */
 #else
-#include "../common/resume.h" /* cpu_t */
+#include <flicker/resume.h> /* cpu_t */
 #endif
 
 /* Dependent on layout of 'struct pal_descriptor' in ../kmod/flicker.h

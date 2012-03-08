@@ -13,7 +13,7 @@ LD=ld
 CFLAGS := -Wall -Werror -O2 -std=gnu99 -m32 -march=i686
 CFLAGS += -fno-builtin -fno-common -fno-strict-aliasing
 CFLAGS += -fomit-frame-pointer
-CFLAGS += -I$(CURDIR)/../include -I$(CURDIR)/../extra -I$(CURDIR)/../tsm
+CFLAGS += -I$(CURDIR)/../common -I$(CURDIR)/../include -I$(CURDIR)/../extra -I$(CURDIR)/../tsm
 CFLAGS += -msoft-float
 CFLAGS += -fno-jump-tables
 CFLAGS += -fno-stack-protector
@@ -22,6 +22,7 @@ CFLAGS += -DnotPERFCRIT
 CFLAGS += -DMIN_LOG_LEVEL=1
 
 AFLAGS += -D__ASSEMBLY__
+AFLAGS += -I$(CURDIR)/../common -I$(CURDIR)/../include -I$(CURDIR)/../extra -I$(CURDIR)/../tsm
 
 LDFLAGS	+= -melf_i386
 

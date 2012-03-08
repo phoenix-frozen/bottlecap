@@ -108,7 +108,7 @@
 #endif
 .endm
 
-#include "../common/resumeoffsets.h"
+#include <flicker/resumeoffsets.h>
 
 /* CPU vendor-specific magic numbers */
 #define CPU_VENDOR_INTEL 	0xAB

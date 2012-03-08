@@ -17,7 +17,7 @@
 #endif // _WiN32
 
 #include "acmod.h"
-#include "../common/resume.h" /* cpu_t */
+#include <resume.h> /* cpu_t */
 
 #define MAX_INPUT_SIZE 0x1d*PAGE_SIZE-sizeof(cpu_t)
 #define MAX_OUTPUT_SIZE 0x1c*PAGE_SIZE

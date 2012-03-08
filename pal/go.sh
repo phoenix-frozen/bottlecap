@@ -74,7 +74,8 @@ echo -n G > $SYSFSPATH/control
 
 # Read outputs
 echo "Retrieving outputs from Flicker session:"
-cat $SYSFSPATH/data | hd
+cat $SYSFSPATH/data > flicker.out
+hd < flicker.out
 
 rmmod flicker
 
