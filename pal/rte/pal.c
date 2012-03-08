@@ -32,8 +32,8 @@
 #include <util.h>
 #include <main.h>
 
-#include "sha1.h"
-#include "tpm.h"
+#include <sha1.h>
+#include <tpm.h>
 
 /**
  * Special global variables used to convey the size of LOW and HIGH

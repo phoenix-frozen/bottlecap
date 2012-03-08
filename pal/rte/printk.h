@@ -54,7 +54,6 @@ extern void printk(const char *fmt, ...)
 
 /* TODO: Consolidate these */
 extern void dump_bytes(unsigned char *bytes, int len);
-extern void print_hex(const char *prefix, const void *prtptr, size_t size);
 
 #else
 

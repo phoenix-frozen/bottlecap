@@ -39,8 +39,9 @@
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdarg.h>
+#include <string.h>
+#include <util.h>
 
-#include "string.h"
 #include "printk.h"
 #include "com.h"
 
@@ -92,20 +93,6 @@ void dump_bytes(unsigned char *bytes, int len)
     if(len%16) {
         printk("\n");
     }
-}
-
-/*
- * if 'prefix' != NULL, print it before each line of hex string
- */
-void print_hex(const char *prefix, const void *prtptr, size_t size)
-{
-    size_t i;
-    for ( i = 0; i < size; i++ ) {
-        if ( i % 16 == 0 && prefix != NULL )
-            printk("\n%s", prefix);
-        printk("%02x ", *(const uint8_t *)prtptr++);
-    }
-    printk("\n");
 }
 
 #endif /* PERFCRIT */

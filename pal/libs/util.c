@@ -22,14 +22,17 @@
  * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
  * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
  */
+#include <string.h> /* vscnprintf */
+#include <stdio.h>
 
 #include "util.h"
-#include "params.h" /* for log* stuff */
-#include "string.h" /* vscnprintf */
-#include "printk.h"
 #ifdef _WIN32
 #include "io.h"
 #endif
+
+#ifndef BOTTLE_CAP_TEST
+#include "params.h"
+#endif //BOTTLE_CAP_TEST
 
 #define SERIAL_BASE 0x3f8
 
@@ -124,6 +127,7 @@ slb_out_info(const char *msg)
 
 void record_timestamp (const char *name)
 {
+#ifndef BOTTLE_CAP_TEST
     uint64_t timestamp;
     int nameLength;
     char *paramData;
@@ -137,13 +141,14 @@ void record_timestamp (const char *name)
     }
     memcpy(paramData, &timestamp, sizeof(uint64_t));
     memcpy(paramData + sizeof(uint64_t), name, nameLength);
+#endif //BOTTLE_CAP_TEST
 }
 
 void log_event (int level, const char *fmt, ...)
 {
 #define MAX_LOG_ENTRY_SIZE  256
     char logEntry[MAX_LOG_ENTRY_SIZE];
-    int logEntrySize;
+    int logEntrySize __attribute__((unused));
     va_list params;
 
     if (level < MIN_LOG_LEVEL) {
@@ -161,8 +166,10 @@ void log_event (int level, const char *fmt, ...)
     logEntry[MAX_LOG_ENTRY_SIZE - 1] = '\0';
     logEntrySize = strnlen(logEntry, MAX_LOG_ENTRY_SIZE);
 
+#ifndef BOTTLE_CAP_TEST
     pm_append(PARAMETER_TYPE_LOG_ENTRY, logEntry, logEntrySize);
-    printk("%s", logEntry);
+#endif //BOTTLE_CAP_TEST
+    printf("%s", logEntry);
 }
 
 #endif /* PERFCRIT */
@@ -246,5 +253,17 @@ slb_serial_init()
     outb(SERIAL_BASE+0x4, 0x03);
 }
 
-
+/*
+ * if 'prefix' != NULL, print it before each line of hex string
+ */
+void print_hex(const char *prefix, const void *prtptr, size_t size)
+{
+    size_t i;
+    for ( i = 0; i < size; i++ ) {
+        if ( i % 16 == 0 && prefix != NULL )
+            printf("\n%s", prefix);
+        printf("%02x ", *(const uint8_t *)prtptr++);
+    }
+    printf("\n");
+}
 

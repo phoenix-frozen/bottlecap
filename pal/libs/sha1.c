@@ -45,10 +45,11 @@ effort (for example the reengineering of a great many Capstone chips).
  * sha1.c: Modified for Flicker.
  */
 
+#include <string.h>
+#include <stdlib.h>
 
 #include "sha1.h"
-#include "string.h"
-#include "puttymem.h"
+//#include "puttymem.h"
 
 void SHA1_copy(SHA1_CTX *dest, SHA1_CTX *src)
 {

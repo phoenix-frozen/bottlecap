@@ -42,12 +42,14 @@
 #include <stdint.h>
 #include <stddef.h>
 #include <stdbool.h>
+#include <string.h>
+#include <stdio.h>
+#include <assert.h>
 
-#include "string.h"
-#include "printk.h"
+#include <sha1.h>
+#include <util.h>
+
 #include "tpm.h"
-#include "sha1.h"
-#include "util.h"
 
 /* These go with _tpm_submit_cmd in tpm.c */
 extern uint8_t     cmd_buf[TPM_CMD_SIZE_MAX];
@@ -73,7 +75,7 @@ uint32_t tpm_pcr_reset(uint32_t locality, uint32_t pcr)
 
     ret = tpm_submit_cmd(locality, TPM_ORD_PCR_RESET, in_size, &out_size);
 
-    printk("TPM: Pcr %d reset, return value = %08X\n", pcr, ret);
+    printf("TPM: Pcr %d reset, return value = %08X\n", pcr, ret);
 
     return ret;
 }
@@ -103,18 +105,18 @@ uint32_t tpm_nv_read_value(uint32_t locality, tpm_nv_index_t index,
     ret = tpm_submit_cmd(locality, TPM_ORD_NV_READ_VALUE, in_size, &out_size);
 
 #ifdef TPM_TRACE
-    printk("TPM: read nv index %08x from offset %08x, return value = %08X\n",
+    printf("TPM: read nv index %08x from offset %08x, return value = %08X\n",
            index, offset, ret);
 #endif
     if ( ret != TPM_SUCCESS ) {
-        printk("TPM: read nv index %08x offset %08x, return value = %08X\n",
+        printf("TPM: read nv index %08x offset %08x, return value = %08X\n",
                index, offset, ret);
         return ret;
     }
 
 #ifdef TPM_TRACE
     {
-        printk("TPM: ");
+        printf("TPM: ");
         print_hex(NULL, WRAPPER_OUT_BUF, out_size);
     }
 #endif
@@ -184,7 +186,7 @@ uint32_t tpm_nv_get_info(uint32_t locality, tpm_nv_index_t index, tpm_nv_data_pu
                            sub_cap, &retSize, buffer);
 
 #ifdef TPM_TRACE
-  printk("TPM: get_nv_info data for index %d returned val %08x\n", index, ret);
+  printf("TPM: get_nv_info data for index %d returned val %08x\n", index, ret);
 #endif
 
   if (ret != TPM_SUCCESS) {
@@ -222,11 +224,11 @@ uint32_t tpm_nv_write_value(uint32_t locality, tpm_nv_index_t index,
                          in_size, &out_size);
 
 #ifdef TPM_TRACE
-    printk("TPM: write nv %08x, offset %08x, %08x bytes, return = %08X\n",
+    printf("TPM: write nv %08x, offset %08x, %08x bytes, return = %08X\n",
            index, offset, data_size, ret);
 #endif
     if ( ret != TPM_SUCCESS )
-        printk("TPM: write nv %08x, offset %08x, %08x bytes, return = %08X\n",
+        printf("TPM: write nv %08x, offset %08x, %08x bytes, return = %08X\n",
                index, offset, data_size, ret);
 
     return ret;
@@ -239,7 +241,7 @@ static bool hmac(const uint8_t key[HMAC_OUTPUT_SIZE], const uint8_t *msg,
     uint32_t i;
     SHA1_CTX ctx;
 
-    ASSERT(HMAC_OUTPUT_SIZE <= HMAC_BLOCK_SIZE);
+    assert(HMAC_OUTPUT_SIZE <= HMAC_BLOCK_SIZE);
 
     for ( i = 0; i < HMAC_BLOCK_SIZE; i++ ) {
         ipad[i] = 0x36;
@@ -295,16 +297,16 @@ static uint32_t tpm_oiap(uint32_t locality, tpm_authhandle_t *hauth,
     ret = tpm_submit_cmd(locality, TPM_ORD_OIAP, offset, &out_size);
 
 #ifdef TPM_TRACE
-    printk("TPM: start OIAP, return value = %08X\n", ret);
+    printf("TPM: start OIAP, return value = %08X\n", ret);
 #endif
     if ( ret != TPM_SUCCESS ) {
-        printk("TPM: start OIAP, return value = %08X\n", ret);
+        printf("TPM: start OIAP, return value = %08X\n", ret);
         return ret;
     }
 
 #ifdef TPM_TRACE
     {
-        printk("TPM: ");
+        printf("TPM: ");
         print_hex(NULL, WRAPPER_OUT_BUF, out_size);
     }
 #endif
@@ -336,16 +338,16 @@ static uint32_t tpm_osap(uint32_t locality, tpm_entity_type_t ent_type,
     ret = tpm_submit_cmd(locality, TPM_ORD_OSAP, offset, &out_size);
 
 #ifdef TPM_TRACE
-    printk("TPM: start OSAP, return value = %08X\n", ret);
+    printf("TPM: start OSAP, return value = %08X\n", ret);
 #endif
     if ( ret != TPM_SUCCESS ) {
-        printk("TPM: start OSAP, return value = %08X\n", ret);
+        printf("TPM: start OSAP, return value = %08X\n", ret);
         return ret;
     }
 
 #ifdef TPM_TRACE
     {
-        printk("TPM: ");
+        printf("TPM: ");
         print_hex(NULL, WRAPPER_OUT_BUF, out_size);
     }
 #endif
@@ -373,7 +375,7 @@ static uint32_t _tpm_seal(uint32_t locality, tpm_key_handle_t hkey,
          nonce_odd == NULL || cont_session == NULL || pub_auth == NULL ||
          sealed_data_size == NULL || sealed_data == NULL ||
          nonce_even == NULL || res_auth == NULL ) {
-        printk("TPM: _tpm_seal() bad parameter\n");
+        printf("TPM: _tpm_seal() bad parameter\n");
         return TPM_BAD_PARAMETER;
     }
 
@@ -395,16 +397,16 @@ static uint32_t _tpm_seal(uint32_t locality, tpm_key_handle_t hkey,
     ret = tpm_submit_cmd_auth1(locality, TPM_ORD_SEAL, offset, &out_size);
 
 #ifdef TPM_TRACE
-    printk("TPM: seal data, return value = %08X\n", ret);
+    printf("TPM: seal data, return value = %08X\n", ret);
 #endif
     if ( ret != TPM_SUCCESS ) {
-        printk("TPM: seal data, return value = %08X\n", ret);
+        printf("TPM: seal data, return value = %08X\n", ret);
         return ret;
     }
 
 #ifdef TPM_TRACE
     {
-        printk("TPM: ");
+        printf("TPM: ");
         print_hex(NULL, WRAPPER_OUT_BUF, out_size);
     }
 #endif
@@ -412,7 +414,7 @@ static uint32_t _tpm_seal(uint32_t locality, tpm_key_handle_t hkey,
     if ( *sealed_data_size <
          ( out_size - sizeof(*nonce_even) - sizeof(*cont_session)
            - sizeof(*res_auth) ) ) {
-        printk("TPM: sealed blob is too small\n");
+        printf("TPM: sealed blob is too small\n");
         return TPM_NOSPACE;
     }
 
@@ -443,7 +445,7 @@ static uint32_t _tpm_unseal(uint32_t locality, tpm_key_handle_t hkey,
          auth_d == NULL || secret_size == NULL || secret == NULL ||
          nonce_even == NULL || res_auth == NULL || nonce_even_d == NULL ||
          res_auth_d == NULL ) {
-        printk("TPM: _tpm_unseal() bad parameter\n");
+        printf("TPM: _tpm_unseal() bad parameter\n");
         return TPM_BAD_PARAMETER;
     }
 
@@ -466,16 +468,16 @@ static uint32_t _tpm_unseal(uint32_t locality, tpm_key_handle_t hkey,
     ret = tpm_submit_cmd_auth2(locality, TPM_ORD_UNSEAL, offset, &out_size);
 
 #ifdef TPM_TRACE
-    printk("TPM: unseal data, return value = %08X\n", ret);
+    printf("TPM: unseal data, return value = %08X\n", ret);
 #endif
     if ( ret != TPM_SUCCESS ) {
-        printk("TPM: unseal data, return value = %08X\n", ret);
+        printf("TPM: unseal data, return value = %08X\n", ret);
         return ret;
     }
 
 #ifdef TPM_TRACE
     {
-        printk("TPM: ");
+        printf("TPM: ");
         print_hex(NULL, WRAPPER_OUT_BUF, out_size);
     }
 #endif
@@ -484,7 +486,7 @@ static uint32_t _tpm_unseal(uint32_t locality, tpm_key_handle_t hkey,
          ( out_size - sizeof(*secret_size) - sizeof(*nonce_even)
            - sizeof(*cont_session) - sizeof(*res_auth) - sizeof(*nonce_even_d)
            - sizeof(*cont_session_d) - sizeof(*res_auth_d) ) ) {
-        printk("TPM: unsealed data too small\n");
+        printf("TPM: unsealed data too small\n");
         return TPM_NOSPACE;
     }
 
@@ -737,14 +739,14 @@ uint32_t tpm_seal(uint32_t locality, tpm_locality_selection_t release_locs,
          in_data_size == 0 || in_data == NULL ||
          sealed_data_size == NULL || sealed_data == NULL ||
          *sealed_data_size == 0 ) {
-        printk("TPM: tpm_seal() bad parameter\n");
+        printf("TPM: tpm_seal() bad parameter\n");
         return TPM_BAD_PARAMETER;
     }
 
     if ( !init_pcr_info(locality, release_locs, pcr_nr_create,
                         pcr_indcs_create, pcr_nr_release, pcr_indcs_release,
                         pcr_values_release, &pcr_info) ) {
-        printk("TPM: tpm_seal() bad parameter\n");
+        printf("TPM: tpm_seal() bad parameter\n");
         return TPM_BAD_PARAMETER;
     }
 
@@ -791,12 +793,12 @@ uint32_t tpm_unseal(uint32_t locality,
 
     if ( sealed_data == NULL ||
          secret_size == NULL || secret == NULL ) {
-        printk("TPM: tpm_unseal() bad parameter\n");
+        printf("TPM: tpm_unseal() bad parameter\n");
         return TPM_BAD_PARAMETER;
     }
 
     if ( !check_sealed_data(sealed_data_size, sealed_data) ) {
-        printk("TPM: tpm_unseal() blob invalid\n");
+        printf("TPM: tpm_unseal() blob invalid\n");
         return TPM_BAD_PARAMETER;
     }
 
@@ -852,7 +854,7 @@ bool tpm_cmp_creation_pcrs(uint32_t pcr_nr_create,
             return false;
     }
     if ( !check_sealed_data(sealed_data_size, sealed_data) ) {
-        printk("TPM: Bad blob.\n");
+        printf("TPM: Bad blob.\n");
         return false;
     }
 
@@ -864,7 +866,7 @@ bool tpm_cmp_creation_pcrs(uint32_t pcr_nr_create,
     if ( cre_composite == NULL )
         return false;
     if ( memcmp((uint8_t*)&composite, (uint8_t*)cre_composite, sizeof(composite)) ) {
-        printk("TPM: Not equal to creation composition:\n");
+        printf("TPM: Not equal to creation composition:\n");
         print_hex(NULL, (uint8_t *)&composite, sizeof(composite));
         print_hex(NULL, (uint8_t *)cre_composite, sizeof(composite));
         return false;
@@ -883,7 +885,7 @@ uint32_t tpm_get_nvindex_size(uint32_t locality,
     tpm_nv_index_t idx;
 
     if ( size == NULL ) {
-        printk("TPM: tpm_get_nvindex_size() bad parameter\n");
+        printf("TPM: tpm_get_nvindex_size() bad parameter\n");
         return TPM_BAD_PARAMETER;
     }
 
@@ -895,23 +897,23 @@ uint32_t tpm_get_nvindex_size(uint32_t locality,
                              sub_cap, &resp_size, resp);
 
 #ifdef TPM_TRACE
-    printk("TPM: get nvindex size, return value = %08X\n", ret);
+    printf("TPM: get nvindex size, return value = %08X\n", ret);
 #endif
     if ( ret != TPM_SUCCESS ) {
-        printk("TPM: fail to get public data of 0x%08X in TPM NV\n", index);
+        printf("TPM: fail to get public data of 0x%08X in TPM NV\n", index);
         return ret;
     }
 
 #ifdef TPM_TRACE
     {
-        printk("TPM: ");
+        printf("TPM: ");
         print_hex(NULL, resp, resp_size);
     }
 #endif
 
     /* check size */
     if ( resp_size == 0 ) {
-        printk("TPM: Index 0x%08X does not exist\n", index);
+        printf("TPM: Index 0x%08X does not exist\n", index);
         return TPM_BADINDEX;
     }
 
@@ -919,17 +921,17 @@ uint32_t tpm_get_nvindex_size(uint32_t locality,
     offset = sizeof(tpm_structure_tag_t);
     LOAD_INTEGER(resp, offset, idx);
 #ifdef TPM_TRACE
-    printk("TPM: get index value = %08X\n", idx);
+    printf("TPM: get index value = %08X\n", idx);
 #endif
 
     if ( idx != index ) {
-        printk("TPM: Index 0x%08X is not the one expected 0x%08X\n",
+        printf("TPM: Index 0x%08X is not the one expected 0x%08X\n",
                idx, index);
         return TPM_BADINDEX;
     }
 
     if ( resp_size != sizeof(resp) ) {
-        printk("TPM: public data size of Index 0x%08X responsed incorrect\n",
+        printf("TPM: public data size of Index 0x%08X responsed incorrect\n",
                index);
         return TPM_FAIL;
     }
@@ -952,23 +954,23 @@ uint32_t tpm_save_state(uint32_t locality)
 
         ret = tpm_submit_cmd(locality, TPM_ORD_SAVE_STATE, offset, &out_size);
         if ( retries == 0 )
-            printk("TPM: save state, return value = %08X\n", ret);
+            printf("TPM: save state, return value = %08X\n", ret);
         else if ( retries == 1 )
-            printk("retrying command: .");
+            printf("retrying command: .");
         else
-            printk(".");
+            printf(".");
 
         if ( ret != TPM_RETRY )
             break;
 
         retries++;
-        ASSERT(false); // XXX need delay support
+        assert(false); // XXX need delay support
         //delay(100);
     } while ( retries < MAX_SAVESTATE_RETRIES );
     if ( retries >= MAX_SAVESTATE_RETRIES )
-        printk("TIMEOUT!");
+        printf("TIMEOUT!");
     if ( retries > 0 )
-        printk("\n");
+        printf("\n");
 
     return ret;
 }

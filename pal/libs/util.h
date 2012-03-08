@@ -27,6 +27,7 @@
 #define _UTIL_H_
 
 #include <stdint.h> /* uintXX_t */
+#include <string.h> /* size_t */
 #include <limits.h> /* INT_MAX, etc */
 #include <stdarg.h>
 #ifdef _WIN32
@@ -41,8 +42,6 @@
 
 #define BUG() /**/
 #define BUG_ON(_p) do { if (_p) BUG(); } while ( 0 )
-
-#define ASSERT(X) {if (!(X)) { printk("Assertion failed"); }}
 
 /* contants for Inter-Processor Interrupts (IPI) */
 enum
@@ -212,5 +211,7 @@ static inline void cpu_relax(void)
 #endif // _WIN32
 }
 
+extern void print_hex(const char *prefix, const void *prtptr, size_t size);
+int     vscnprintf(char *buf, size_t size, const char *fmt, va_list ap);
 
 #endif

@@ -51,7 +51,6 @@ int     strncmp(const char *, const char *, size_t);
 char    *strncpy(char * __restrict, const char * __restrict, size_t);
 void    *memcpy(void *dst, const void *src, size_t len);
 int     snprintf(char *buf, size_t size, const char *fmt, ...);
-int     vscnprintf(char *buf, size_t size, const char *fmt, va_list ap);
 unsigned long strtoul(const char *nptr, char **endptr, int base);
 
 static inline void *memset(void *b, int c, size_t len)

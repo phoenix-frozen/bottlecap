@@ -1,7 +1,7 @@
 #include <assert.h>
 #include <string.h>
 
-#include "../sha1.h"
+#include <sha1.h>
 
 #include "bottlecap.h"
 

@@ -40,11 +40,13 @@
 #include <stddef.h>
 #include <stdbool.h>
 
-#include "string.h"
-#include "printk.h"
+#include <stdio.h>
+#include <string.h>
+
+#include <sha1.h>
+#include <util.h>
+
 #include "tpm.h"
-#include "sha1.h"
-#include "util.h"
 
 static void _read_tpm_reg(int locality, uint32_t reg, uint8_t *_raw, size_t size)
 {
@@ -80,7 +82,7 @@ static bool tpm_validate_locality(uint32_t locality)
     }
 
     if ( i <= 0 )
-        printk("\nTPM: tpm_validate_locality timeout\n");
+        printf("\nTPM: tpm_validate_locality timeout\n");
 
     return false;
 }
@@ -96,13 +98,13 @@ void dump_locality_access_regs(void) {
     tpm_reg_access_t reg_acc;
     uint32_t locality;
 
-    printk("\n%s():\n", __FUNCTION__);
+    printf("\n%s():\n", __FUNCTION__);
     for(locality=0; locality <= 3; locality++) {
         read_tpm_reg(locality, TPM_REG_ACCESS, &reg_acc);
-        printk("  TPM: Locality %d Access reg content: 0x%02x\n",
+        printf("  TPM: Locality %d Access reg content: 0x%02x\n",
                locality, (uint32_t)reg_acc._raw[0]);
         if ( reg_acc.tpm_reg_valid_sts == 0 ) {
-            printk("    TPM: Access reg not valid\n");
+            printf("    TPM: Access reg not valid\n");
         }
     }
 }
@@ -111,7 +113,7 @@ void deactivate_all_localities(void) {
     tpm_reg_access_t reg_acc;
     uint32_t locality;
 
-    printk("TPM: %s()\n", __FUNCTION__);
+    printf("TPM: %s()\n", __FUNCTION__);
     for(locality=0; locality <= 3; locality++) {
         reg_acc._raw[0] = 0;
         reg_acc.active_locality = 1;
@@ -133,10 +135,10 @@ uint32_t tpm_wait_cmd_ready(uint32_t locality)
     /* ensure the contents of the ACCESS register are valid */
     read_tpm_reg(locality, TPM_REG_ACCESS, &reg_acc);
 #ifdef TPM_TRACE
-    printk("\nTPM: Access reg content: 0x%02x\n", (uint32_t)reg_acc._raw[0]);
+    printf("\nTPM: Access reg content: 0x%02x\n", (uint32_t)reg_acc._raw[0]);
 #endif
     if ( reg_acc.tpm_reg_valid_sts == 0 ) {
-        printk("TPM: Access reg not valid\n");
+        printf("TPM: Access reg not valid\n");
         return TPM_FAIL;
     }
 
@@ -156,13 +158,13 @@ uint32_t tpm_wait_cmd_ready(uint32_t locality)
     } while ( i <= TPM_ACTIVE_LOCALITY_TIME_OUT);
 
     if ( i > TPM_ACTIVE_LOCALITY_TIME_OUT ) {
-        printk("TPM: access reg request use timeout (i=%d)\n", i);
+        printf("TPM: access reg request use timeout (i=%d)\n", i);
         return TPM_FAIL;
     }
 
     /* ensure the TPM is ready to accept a command */
 #ifdef TPM_TRACE
-    printk("TPM: wait for cmd ready ");
+    printf("TPM: wait for cmd ready ");
 #endif
     i = 0;
     do {
@@ -175,7 +177,7 @@ uint32_t tpm_wait_cmd_ready(uint32_t locality)
         /* then see if it has */
         read_tpm_reg(locality, TPM_REG_STS, &reg_sts);
 #ifdef TPM_TRACE
-        printk(".");
+        printf(".");
 #endif
         if ( reg_sts.command_ready == 1 )
             break;
@@ -184,15 +186,15 @@ uint32_t tpm_wait_cmd_ready(uint32_t locality)
         i++;
     } while ( i <= TPM_CMD_READY_TIME_OUT );
 #ifdef TPM_TRACE
-    printk("\n");
+    printf("\n");
 #endif
 
     if ( i > TPM_CMD_READY_TIME_OUT ) {
-        printk("TPM: status reg content: %02x %02x %02x\n",
+        printf("TPM: status reg content: %02x %02x %02x\n",
                (uint32_t)reg_sts._raw[0],
                (uint32_t)reg_sts._raw[1],
                (uint32_t)reg_sts._raw[2]);
-        printk("TPM: tpm timeout for command_ready\n");
+        printf("TPM: tpm timeout for command_ready\n");
         goto RelinquishControl;
     }
     return TPM_SUCCESS;
@@ -240,20 +242,20 @@ static uint32_t tpm_write_cmd_fifo(uint32_t locality, uint8_t *in,
     tpm_reg_sts_t       reg_sts;
 
     if ( locality >= TPM_NR_LOCALITIES ) {
-        printk("TPM: Invalid locality for tpm_write_cmd_fifo()\n");
+        printf("TPM: Invalid locality for tpm_write_cmd_fifo()\n");
         return TPM_BAD_PARAMETER;
     }
     if ( in == NULL || out == NULL || out_size == NULL ) {
-        printk("TPM: Invalid parameter for tpm_write_cmd_fifo()\n");
+        printf("TPM: Invalid parameter for tpm_write_cmd_fifo()\n");
         return TPM_BAD_PARAMETER;
     }
     if ( in_size < CMD_HEAD_SIZE || *out_size < RSP_HEAD_SIZE ) {
-        printk("TPM: in/out buf size must be larger than 10 bytes\n");
+        printf("TPM: in/out buf size must be larger than 10 bytes\n");
         return TPM_BAD_PARAMETER;
     }
 
     if ( !tpm_validate_locality(locality) ) {
-        printk("TPM: Locality %d is not open\n", locality);
+        printf("TPM: Locality %d is not open\n", locality);
         return TPM_FAIL;
     }
 
@@ -263,7 +265,7 @@ static uint32_t tpm_write_cmd_fifo(uint32_t locality, uint8_t *in,
 
 #ifdef TPM_TRACE
     {
-        printk("TPM: cmd size = %d\nTPM: cmd content: ", in_size);
+        printf("TPM: cmd size = %d\nTPM: cmd content: ", in_size);
         print_hex("TPM: \t", in, in_size);
     }
 #endif
@@ -283,7 +285,7 @@ static uint32_t tpm_write_cmd_fifo(uint32_t locality, uint8_t *in,
             i++;
         } while ( i <= TPM_CMD_WRITE_TIME_OUT );
         if ( i > TPM_CMD_WRITE_TIME_OUT ) {
-            printk("TPM: write cmd timeout\n");
+            printf("TPM: write cmd timeout\n");
             ret = TPM_FAIL;
             goto RelinquishControl;
         }
@@ -309,7 +311,7 @@ static uint32_t tpm_write_cmd_fifo(uint32_t locality, uint8_t *in,
         i++;
     } while ( i <= TPM_DATA_AVAIL_TIME_OUT );
     if ( i > TPM_DATA_AVAIL_TIME_OUT ) {
-        printk("TPM: wait for data available timeout\n");
+        printf("TPM: wait for data available timeout\n");
         ret = TPM_FAIL;
         goto RelinquishControl;
     }
@@ -329,7 +331,7 @@ static uint32_t tpm_write_cmd_fifo(uint32_t locality, uint8_t *in,
             i++;
         } while ( i <= TPM_RSP_READ_TIME_OUT );
         if ( i > TPM_RSP_READ_TIME_OUT ) {
-            printk("TPM: read rsp timeout\n");
+            printf("TPM: read rsp timeout\n");
             ret = TPM_FAIL;
             goto RelinquishControl;
         }
@@ -361,8 +363,8 @@ static uint32_t tpm_write_cmd_fifo(uint32_t locality, uint8_t *in,
 
 #ifdef TPM_TRACE
     {
-        printk("TPM: response size = %d\n", *out_size);
-        printk("TPM: response content: ");
+        printf("TPM: response size = %d\n", *out_size);
+        printf("TPM: response content: ");
         print_hex("TPM: \t", out, *out_size);
     }
 #endif
@@ -418,7 +420,7 @@ uint32_t _tpm_submit_cmd(uint32_t locality, uint16_t tag, uint32_t cmd,
     uint32_t    cmd_size, rsp_size = 0;
 
     if ( out_size == NULL ) {
-        printk("TPM: invalid param for _tpm_submit_cmd()\n");
+        printf("TPM: invalid param for _tpm_submit_cmd()\n");
         return TPM_BAD_PARAMETER;
     }
 
@@ -433,7 +435,7 @@ uint32_t _tpm_submit_cmd(uint32_t locality, uint16_t tag, uint32_t cmd,
     cmd_size = CMD_HEAD_SIZE + arg_size;
 
     if ( cmd_size > TPM_CMD_SIZE_MAX ) {
-        printk("TPM: cmd exceeds the max supported size.\n");
+        printf("TPM: cmd exceeds the max supported size.\n");
         return TPM_BAD_PARAMETER;
     }
 
@@ -491,10 +493,10 @@ uint32_t tpm_pcr_read(uint32_t locality, uint32_t pcr, tpm_pcr_value_t *out)
     ret = tpm_submit_cmd(locality, TPM_ORD_PCR_READ, sizeof(pcr), &out_size);
 
 #ifdef TPM_TRACE
-    printk("TPM: Pcr %d Read return value = %08X\n", pcr, ret);
+    printf("TPM: Pcr %d Read return value = %08X\n", pcr, ret);
 #endif
     if ( ret != TPM_SUCCESS ) {
-        printk("TPM: Pcr %d Read return value = %08X\n", pcr, ret);
+        printf("TPM: Pcr %d Read return value = %08X\n", pcr, ret);
         return ret;
     }
 
@@ -504,7 +506,7 @@ uint32_t tpm_pcr_read(uint32_t locality, uint32_t pcr, tpm_pcr_value_t *out)
 
 #ifdef TPM_TRACE
     {
-        printk("TPM: ");
+        printf("TPM: ");
         print_hex(NULL, out->digest, out_size);
     }
 #endif
@@ -535,10 +537,10 @@ uint32_t tpm_pcr_extend(uint32_t locality, uint32_t pcr,
     ret = tpm_submit_cmd(locality, TPM_ORD_PCR_EXTEND, in_size, &out_size);
 
 #ifdef TPM_TRACE
-    printk("TPM: Pcr %d extend, return value = %08X\n", pcr, ret);
+    printf("TPM: Pcr %d extend, return value = %08X\n", pcr, ret);
 #endif
     if ( ret != TPM_SUCCESS ) {
-        printk("TPM: Pcr %d extend, return value = %08X\n", pcr, ret);
+        printf("TPM: Pcr %d extend, return value = %08X\n", pcr, ret);
         return ret;
     }
 
@@ -549,7 +551,7 @@ uint32_t tpm_pcr_extend(uint32_t locality, uint32_t pcr,
 
 #ifdef TPM_TRACE
     {
-        printk("TPM: ");
+        printf("TPM: ");
         print_hex(NULL, out->digest, out_size);
     }
 #endif
@@ -580,16 +582,16 @@ uint32_t tpm_get_version(uint8_t *major, uint8_t *minor)
     ret = tpm_submit_cmd(0, TPM_ORD_GET_CAPABILITY, in_size, &out_size);
 
 #ifdef TPM_TRACE
-    printk("TPM: get version, return value = %08X\n", ret);
+    printf("TPM: get version, return value = %08X\n", ret);
 #endif
     if ( ret != TPM_SUCCESS ) {
-        printk("TPM: get version, return value = %08X\n", ret);
+        printf("TPM: get version, return value = %08X\n", ret);
         return ret;
     }
 
 #ifdef TPM_TRACE
     {
-        printk("TPM: ");
+        printf("TPM: ");
         print_hex(NULL, WRAPPER_OUT_BUF, out_size);
     }
 #endif
@@ -614,7 +616,7 @@ uint32_t tpm_get_capability(
     uint32_t ret, offset, out_size;
 
     if ( sub_cap == NULL || resp_size == NULL || resp == NULL ) {
-        printk("TPM: tpm_get_capability() bad parameter\n");
+        printf("TPM: tpm_get_capability() bad parameter\n");
         return TPM_BAD_PARAMETER;
     }
 
@@ -628,17 +630,17 @@ uint32_t tpm_get_capability(
     ret = tpm_submit_cmd(locality, TPM_ORD_GET_CAPABILITY, offset, &out_size);
 
 #ifdef TPM_TRACE
-    printk("TPM: get capability, return value = %08X\n", ret);
+    printf("TPM: get capability, return value = %08X\n", ret);
 #endif
     if ( ret != TPM_SUCCESS ) {
-        printk("TPM: get capability, return value = %08X\n", ret);
+        printf("TPM: get capability, return value = %08X\n", ret);
         return ret;
     }
 
     offset = 0;
     LOAD_INTEGER(WRAPPER_OUT_BUF, offset, *resp_size);
     if ( out_size < sizeof(*resp_size) + *resp_size ) {
-        printk("TPM: capability response too small\n");
+        printf("TPM: capability response too small\n");
         return TPM_FAIL;
     }
     LOAD_BLOB(WRAPPER_OUT_BUF, offset, resp, *resp_size);
@@ -657,7 +659,7 @@ static uint32_t tpm_get_flags(uint32_t locality, uint32_t flag_id,
     tpm_structure_tag_t tag;
 
     if ( flags == NULL ) {
-        printk("TPM: tpm_get_flags() bad parameter\n");
+        printf("TPM: tpm_get_flags() bad parameter\n");
         return TPM_BAD_PARAMETER;
     }
 
@@ -669,7 +671,7 @@ static uint32_t tpm_get_flags(uint32_t locality, uint32_t flag_id,
                              sub_cap, &resp_size, flags);
 
 #ifdef TPM_TRACE
-    printk("TPM: get flags %08X, return value = %08X\n", flag_id, ret);
+    printf("TPM: get flags %08X, return value = %08X\n", flag_id, ret);
 #endif
     if ( ret != TPM_SUCCESS )
         return ret;
@@ -677,7 +679,7 @@ static uint32_t tpm_get_flags(uint32_t locality, uint32_t flag_id,
     /* 1.2 spec, main part 2, rev 103 add one more byte to permanent flags, to
        be backward compatible, not assume all expected bytes can be gotten */
     if ( resp_size > flag_size ) {
-        printk("TPM: tpm_get_flags() response size too small\n");
+        printf("TPM: tpm_get_flags() response size too small\n");
         return TPM_FAIL;
     }
 
@@ -698,7 +700,7 @@ static uint32_t tpm_get_timeout(uint32_t locality,
     uint32_t resp[4];
 
     if ( (prop == NULL) || (prop_size < sizeof(resp)) ) {
-        printk("TPM: tpm_get_timeout() bad parameter\n");
+        printf("TPM: tpm_get_timeout() bad parameter\n");
         return TPM_BAD_PARAMETER;
     }
 
@@ -710,13 +712,13 @@ static uint32_t tpm_get_timeout(uint32_t locality,
                              sub_cap, &resp_size, prop);
 
 #ifdef TPM_TRACE
-    printk("TPM: get prop %08X, return value = %08X\n", prop_id, ret);
+    printf("TPM: get prop %08X, return value = %08X\n", prop_id, ret);
 #endif
     if ( ret != TPM_SUCCESS )
         return ret;
 
     if ( resp_size != prop_size ) {
-        printk("TPM: tpm_get_property() response size incorrect\n");
+        printf("TPM: tpm_get_property() response size incorrect\n");
         return TPM_FAIL;
     }
 
@@ -733,7 +735,7 @@ bool release_locality(uint32_t locality)
     uint32_t i;
     tpm_reg_access_t reg_acc;
 #ifdef TPM_TRACE
-    printk("TPM: releasing locality %u\n", locality);
+    printf("TPM: releasing locality %u\n", locality);
 #endif
 
     if ( !tpm_validate_locality(locality) )
@@ -758,7 +760,7 @@ bool release_locality(uint32_t locality)
         i++;
     } while ( i <= TPM_ACTIVE_LOCALITY_TIME_OUT );
 
-    printk("TPM: access reg release locality timeout\n");
+    printf("TPM: access reg release locality timeout\n");
     return false;
 }
 
@@ -781,7 +783,7 @@ bool is_tpm_ready(uint32_t locality)
     uint32_t ret;
 
     if ( !tpm_validate_locality(locality) ) {
-        printk("TPM is not available.\n");
+        printf("TPM is not available.\n");
         return false;
     }
 
@@ -790,11 +792,11 @@ bool is_tpm_ready(uint32_t locality)
     ret = tpm_get_flags(locality, TPM_CAP_FLAG_PERMANENT,
                         (uint8_t *)&pflags, sizeof(pflags));
     if ( ret != TPM_SUCCESS ) {
-        printk("TPM is disabled or deactivated.\n");
+        printf("TPM is disabled or deactivated.\n");
         return false;
     }
     if ( pflags.disable ) {
-        printk("TPM is disabled.\n");
+        printf("TPM is disabled.\n");
         return false;
     }
 
@@ -802,21 +804,21 @@ bool is_tpm_ready(uint32_t locality)
     ret = tpm_get_flags(locality, TPM_CAP_FLAG_VOLATILE,
                         (uint8_t *)&vflags, sizeof(vflags));
     if ( ret != TPM_SUCCESS ) {
-        printk("TPM is disabled or deactivated.\n");
+        printf("TPM is disabled or deactivated.\n");
         return false;
     }
     if ( vflags.deactivated ) {
-        printk("TPM is deactivated.\n");
+        printf("TPM is deactivated.\n");
         return false;
     }
 
-    printk("TPM is ready\n");
-    printk("TPM nv_locked: %s\n", (pflags.nv_locked != 0) ? "TRUE" : "FALSE");
+    printf("TPM is ready\n");
+    printf("TPM nv_locked: %s\n", (pflags.nv_locked != 0) ? "TRUE" : "FALSE");
 
     /* get tpm timeout values */
     ret = tpm_get_timeout(locality, (uint8_t *)&timeout, sizeof(timeout));
     if ( ret != TPM_SUCCESS )
-        printk("TPM timeout values are not achieved, "
+        printf("TPM timeout values are not achieved, "
                "default values will be used.\n");
     else {
         /*
@@ -827,7 +829,7 @@ bool is_tpm_ready(uint32_t locality)
         g_timeout.timeout_b = timeout[1]/1000;
         g_timeout.timeout_c = timeout[2]/1000;
         g_timeout.timeout_d = timeout[3]/1000;
-        printk("TPM timeout values: A: %u, B: %u, C: %u, D: %u\n",
+        printf("TPM timeout values: A: %u, B: %u, C: %u, D: %u\n",
                g_timeout.timeout_a, g_timeout.timeout_b, g_timeout.timeout_c,
                g_timeout.timeout_d);
         /*
@@ -867,17 +869,17 @@ uint32_t tpm_get_random(uint32_t locality, uint8_t *random_data,
     ret = tpm_submit_cmd(locality, TPM_ORD_GET_RANDOM, in_size, &out_size);
 
 #ifdef TPM_TRACE
-    printk("TPM: get random %u bytes, return value = %08X\n", *data_size, ret);
+    printf("TPM: get random %u bytes, return value = %08X\n", *data_size, ret);
 #endif
     if ( ret != TPM_SUCCESS ) {
-        printk("TPM: get random %u bytes, return value = %08X\n", *data_size,
+        printf("TPM: get random %u bytes, return value = %08X\n", *data_size,
                ret);
         return ret;
     }
 
 #ifdef TPM_TRACE
     {
-        printk("TPM: ");
+        printf("TPM: ");
         print_hex(NULL, WRAPPER_OUT_BUF, out_size);
     }
 #endif
@@ -897,13 +899,13 @@ uint32_t tpm_get_random(uint32_t locality, uint8_t *random_data,
 
     /* if TPM doesn't return all requested random bytes, try one more time */
     if ( *data_size < requested_size ) {
-        printk("requested %x random bytes but only got %x\n", requested_size,
+        printf("requested %x random bytes but only got %x\n", requested_size,
                *data_size);
         /* we're only going to try twice */
         if ( first_attempt ) {
             first_attempt = false;
             second_size = requested_size - *data_size;
-            printk("trying one more time to get remaining %x bytes\n",
+            printf("trying one more time to get remaining %x bytes\n",
                    second_size);
             ret = tpm_get_random(locality, random_data + *data_size,
                                  &second_size);

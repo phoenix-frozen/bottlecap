@@ -36,8 +36,9 @@
 #include <stddef.h>  /* NULL */
 #include <stdbool.h> /* bool */
 #include <stdint.h>  /* uintXX_t */
-
-#include "string.h"
+#include <stdarg.h>  /* va_list */
+#include <stdlib.h>  /* strtoul */
+#include <string.h>
 
 static bool div64(uint64_t num, uint32_t base, uint64_t *quot, uint32_t *rem)
 {
