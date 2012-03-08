@@ -6,6 +6,8 @@
 #define EINVAL     2 //invalid argument
 #define ENOTSUP    3 //invalid operation with current arguments
 #define ENOSYS     4 //function not implemented
+#define ESIGFAIL   5 //bottle signature verification failed
+#define ECRYPTFAIL 6 //failure in cryptographic subsystem
 
 #endif /* __ERRORS_H__ */
 

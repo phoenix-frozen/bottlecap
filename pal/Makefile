@@ -4,6 +4,8 @@
 # $< the name of the related file that caused the action.
 # $* the prefix shared by target and dependent files.
 
+.PHONY: all clean test
+
 CC=gcc
 RM=rm -f
 AS=as
@@ -13,7 +15,7 @@ LD=ld
 CFLAGS := -Wall -Werror -O2 -std=gnu99 -m32 -march=i686
 CFLAGS += -fno-builtin -fno-common -fno-strict-aliasing
 CFLAGS += -fomit-frame-pointer
-CFLAGS += -I$(CURDIR)/../common -I$(CURDIR)/../include -I$(CURDIR)/../extra -I$(CURDIR)/../tsm
+CFLAGS += -I$(CURDIR)/../common -I$(CURDIR)/../include -I$(CURDIR)/../extra -I$(CURDIR)/../tsm -I $(CURDIR)/rte
 CFLAGS += -msoft-float
 CFLAGS += -fno-jump-tables
 CFLAGS += -fno-stack-protector
@@ -32,16 +34,34 @@ TARGET_LDS := $(CURDIR)/pal.ld
 
 C_SRCS := $(wildcard $(CURDIR)/*.c)
 C_SRCS += $(wildcard $(CURDIR)/bottlecap/*.c)
+C_SRCS += $(wildcard $(CURDIR)/rte/*.c)
+
 S_SRCS := $(wildcard $(CURDIR)/*.S)
+S_SRCS += $(wildcard $(CURDIR)/bottlecap/*.S)
+S_SRCS += $(wildcard $(CURDIR)/rte/*.S)
+
 HDRS   := $(wildcard $(CURDIR)/*.h)
-HDRS   := $(wildcard $(CURDIR)/../common/*.h)
+HDRS   += $(wildcard $(CURDIR)/../common/*.h)
 HDRS   += $(wildcard $(CURDIR)/bottlecap/*.h)
+HDRS   += $(wildcard $(CURDIR)/rte/*.h)
 
 OBJS := $(S_SRCS:.S=.o) $(C_SRCS:.c=.o)
 
 BUILD_DEPS := $(CURDIR)/Makefile
 
 all: $(TARGET).bin
+
+
+test: $(TARGET).elf
+test: CFLAGS := -Wall -Werror -O2 -std=gnu99 -m32 -march=i686
+test: CFLAGS += -I$(CURDIR)/../common -I$(CURDIR)/../include -I$(CURDIR)/../extra -I$(CURDIR)/../tsm
+test: CFLAGS += -msoft-float
+test: CFLAGS += -fno-jump-tables
+test: CFLAGS += -fno-stack-protector
+test: CFLAGS += -DnotPERFCRIT
+test: CFLAGS += -DMIN_LOG_LEVEL=1
+test: CFLAGS += -DBOTTLECAP_TEST_HARNESS
+
 
 $(TARGET).bin: $(OBJS) $(TARGET).elf
 	$(LD) $(LDFLAGS) -T $(TARGET_LDS) -N $(OBJS) \
