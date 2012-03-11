@@ -28,6 +28,16 @@ static int check_bottle(bottle_t* bottle) {
 
 	assert(bottle != NULL);
 
+	if(bottle->header == NULL)
+		return -ENOMEM;
+	if(bottle->table == NULL)
+		return -ENOMEM;
+
+	if(bottle->header->magic_top != BOTTLE_MAGIC_TOP)
+		return -EINVAL;
+	if(bottle->header->magic_bottom != BOTTLE_MAGIC_BOTTOM)
+		return -EINVAL;
+
 	//TODO real signature checking
 
 	//table
