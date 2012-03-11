@@ -5,6 +5,10 @@
 
 #include "bottlecap.h"
 
+#ifdef BOTTLE_CAP_TEST
+#include <stdlib.h>
+#endif //BOTTLE_CAP_TEST
+
 //max table length is one 4k page for the moment. to be revised
 #define MAX_TABLE_LENGTH (PAGE_SIZE/sizeof(cap_t))
 
@@ -128,8 +132,15 @@ int bottle_init(bottle_t bottle) {
 	bottle.header->flags = flags;
 	if(flags != 0)
 		return -ENOTSUP;
+
+#ifdef BOTTLE_CAP_TEST
+	for(int i = 0; i < 4; i++) {
+		bottle.header->bek[i] = (uint32_t)rand();
+	}
+#else  //BOTTLE_CAP_TEST
 	//TODO: use TPM's RNG to generate BEK
 	memset(&(bottle.header->bek), 0, sizeof(bottle.header->bek));
+#endif //BOTTLE_CAP_TEST
 
 	//insert magic numbers
 	bottle.header->magic_top = BOTTLE_MAGIC_TOP;
