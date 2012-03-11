@@ -2,10 +2,12 @@
 #include <string.h>
 
 #include <sha1.h>
+#include <polarssl/aes.h>
 
 #include "bottlecap.h"
 
 #ifdef BOTTLE_CAP_TEST
+#include <stdio.h>
 #include <stdlib.h>
 #endif //BOTTLE_CAP_TEST
 
@@ -46,6 +48,9 @@ static int check_bottle(bottle_t* bottle) {
 //assumption: if we return an error code, no encrypted data is exposed
 static int decrypt_bottle(bottle_t* bottle) {
 	assert(bottle != NULL);
+
+	//aes_context ctx;
+
 	//TODO: noop for the moment
 	return ESUCCESS;
 }
@@ -53,6 +58,9 @@ static int decrypt_bottle(bottle_t* bottle) {
 //encrypt the captable in-place
 static int encrypt_bottle(bottle_t* bottle) {
 	assert(bottle != NULL);
+
+	//aes_context ctx;
+
 	//TODO: noop for the moment
 	return ESUCCESS;
 }
@@ -126,7 +134,17 @@ int bottle_init(bottle_t bottle) {
 	uint32_t size  = bottle.header->size;
 	uint32_t flags = bottle.header->flags;
 	memset(bottle.header, 0, sizeof(bottle_header_t));
-	memset(bottle.table , 0, size * sizeof(cap_t));
+
+	for(int i = 0; i < size; i++) {
+		bottle.table[i].magic_start  = CAP_MAGIC_TOP;
+		memset(&(bottle.table[i].key.bytes),    0, sizeof(aeskey_t));
+		memset(&(bottle.table[i].issuer.bytes), 0, sizeof(aeskey_t));
+		bottle.table[i].oid          = 0;
+		bottle.table[i].expiry       = 0;
+		bottle.table[i].urights      = 0;
+		bottle.table[i].srights      = 0;
+		bottle.table[i].magic_bottom = CAP_MAGIC_BOTTOM;
+	}
 
 	bottle.header->size  = size;
 	bottle.header->flags = flags;
@@ -134,9 +152,12 @@ int bottle_init(bottle_t bottle) {
 		return -ENOTSUP;
 
 #ifdef BOTTLE_CAP_TEST
+	printf("BEK is: 0x");
 	for(int i = 0; i < 4; i++) {
-		bottle.header->bek[i] = (uint32_t)rand();
+		bottle.header->bek.dwords[i] = (uint32_t)rand();
+		printf("%08x", bottle.header->bek.dwords[i]);
 	}
+	printf(".\n");
 #else  //BOTTLE_CAP_TEST
 	//TODO: use TPM's RNG to generate BEK
 	memset(&(bottle.header->bek), 0, sizeof(bottle.header->bek));

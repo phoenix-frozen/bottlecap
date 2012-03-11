@@ -32,7 +32,11 @@ int main(void) {
 
 	return 0;
 #else //BOTTLE_CAP_TEST
-	printf("Hello from main()\n");
+	printf("Hello from main(), test edition.\n");
+
+	printf("A bottle_t is %d bytes, or %d bits.\n", sizeof(bottle_t), 8 * sizeof(bottle_t));
+	printf("A bottle_header_t is %d bytes, or %d bits.\n", sizeof(bottle_header_t), 8 * sizeof(bottle_header_t));
+	printf("A cap_t is %d bytes, or %d bits.\n", sizeof(cap_t), 8 * sizeof(cap_t));
 
 	bottle_t* bottle = generate_test_data();
 	printf("bottle: %p\n", bottle);
