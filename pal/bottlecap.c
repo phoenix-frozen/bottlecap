@@ -54,6 +54,14 @@ static int check_bottle(bottle_t* bottle) {
 	return ESUCCESS;
 }
 
+//check that the contents of a decrypted bottle are sane
+static int check_caps(bottle_t* bottle) {
+	assert(bottle != NULL);
+
+	//TODO: noop for the moment
+	return ESUCCESS;
+}
+
 //decrypt the captable in-place
 //assumption: if we return an error code, no encrypted data is exposed
 static int decrypt_bottle(bottle_t* bottle) {
@@ -105,12 +113,23 @@ static int bottle_op_prologue(bottle_t* bottle) {
 	//decrypt the captable
 	DO_OR_BAIL(0, decrypt_bottle, bottle);
 
+	//check that the decrypted captable makes sense
+	int rv = check_caps(bottle);
+	if(rv != ESUCCESS) {
+		//kill the decrypted data, even if it's garbage
+		bottle_annihilate(bottle);
+		return rv;
+	}
+
 	return ESUCCESS;
 }
 //standard epilogue for bottle operations: encrypt and sign
 static int bottle_op_epilogue(bottle_t* bottle) {
 	int rv;
-	
+
+	//check that the captable makes sense
+	DO_OR_BAIL(0, check_caps, bottle);
+
 	//encrypt the captable
 	rv = encrypt_bottle(bottle);
 	if(rv != ESUCCESS) {
