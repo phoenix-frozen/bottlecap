@@ -12,7 +12,7 @@ AS=as
 AR=ar
 LD=ld
 
-INCLUDES :=  $(CURDIR)/../common $(CURDIR)/../include $(CURDIR)/../extra $(CURDIR)/../tsm $(wildcard $(CURDIR)/libs/*)
+INCLUDES :=  $(CURDIR)/../common $(CURDIR)/../include $(CURDIR)/../extra $(CURDIR)/../tsm $(CURDIR)/libs $(wildcard $(CURDIR)/libs/*)
 
 CFLAGS := -Wall -Werror -O2 -std=gnu99 -m32 -march=i686
 CFLAGS += -fno-common -fno-strict-aliasing
