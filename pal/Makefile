@@ -12,10 +12,12 @@ AS=as
 AR=ar
 LD=ld
 
+INCLUDES :=  $(CURDIR)/../common $(CURDIR)/../include $(CURDIR)/../extra $(CURDIR)/../tsm $(wildcard $(CURDIR)/libs/*)
+
 CFLAGS := -Wall -Werror -O2 -std=gnu99 -m32 -march=i686
 CFLAGS += -fno-common -fno-strict-aliasing
 CFLAGS += -fomit-frame-pointer
-CFLAGS += -I$(CURDIR)/../common -I$(CURDIR)/../include -I$(CURDIR)/../extra -I$(CURDIR)/../tsm -I$(CURDIR)/libs
+CFLAGS += $(INCLUDES:%=-I%)
 CFLAGS += -msoft-float
 CFLAGS += -fno-jump-tables
 CFLAGS += -fno-stack-protector
@@ -26,7 +28,7 @@ CFLAGS += -DMIN_LOG_LEVEL=1
 test: CFLAGS += -DBOTTLE_CAP_TEST
 
 AFLAGS += -D__ASSEMBLY__
-AFLAGS += -I$(CURDIR)/../common -I$(CURDIR)/../include -I$(CURDIR)/../extra -I$(CURDIR)/../tsm -I$(CURDIR)/libs
+AFLAGS += $(INCLUDES:%=-I%)
 all: AFLAGS += -I$(CURDIR)/rte
 
 LDFLAGS	+= -melf_i386
@@ -36,21 +38,18 @@ TARGET_LDS := $(CURDIR)/rte/pal.ld
 
 
 C_SRCS := $(wildcard $(CURDIR)/*.c)
-C_SRCS += $(wildcard $(CURDIR)/bottlecap/*.c)
-C_SRCS += $(wildcard $(CURDIR)/libs/*.c)
+C_SRCS += $(wildcard $(CURDIR)/libs/*/*.c)
 TEST_C_SRCS := $(C_SRCS)
 C_SRCS += $(wildcard $(CURDIR)/rte/*.c)
 
 S_SRCS := $(wildcard $(CURDIR)/*.S)
-S_SRCS += $(wildcard $(CURDIR)/bottlecap/*.S)
-S_SRCS += $(wildcard $(CURDIR)/libs/*.S)
+S_SRCS += $(wildcard $(CURDIR)/libs/*/*.S)
 TEST_S_SRCS := $(S_SRCS)
 S_SRCS += $(wildcard $(CURDIR)/rte/*.S)
 
 HDRS   := $(wildcard $(CURDIR)/*.h)
 HDRS   += $(wildcard $(CURDIR)/../common/*.h)
-HDRS   += $(wildcard $(CURDIR)/bottlecap/*.h)
-HDRS   += $(wildcard $(CURDIR)/libs/*.h)
+HDRS   += $(wildcard $(CURDIR)/libs/*/*.h)
 HDRS   += $(wildcard $(CURDIR)/rte/*.h)
 
 OBJS := $(S_SRCS:.S=.o) $(C_SRCS:.c=.o)
