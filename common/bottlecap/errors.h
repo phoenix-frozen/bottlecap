@@ -8,6 +8,7 @@
 #define ENOSYS     4 //function not implemented
 #define ESIGFAIL   5 //bottle signature verification failed
 #define ECRYPTFAIL 6 //failure in cryptographic subsystem
+#define ECORRUPT   7 //corruption detected in captable
 
 #endif /* __ERRORS_H__ */
 

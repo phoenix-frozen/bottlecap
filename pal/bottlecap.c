@@ -38,6 +38,9 @@ static int check_bottle(bottle_t* bottle) {
 	if(bottle->header->magic_bottom != BOTTLE_MAGIC_BOTTOM)
 		return -EINVAL;
 
+	if(bottle->header->size > MAX_TABLE_LENGTH)
+		return -ENOMEM;
+
 	//TODO real signature checking
 
 	//table
@@ -57,8 +60,18 @@ static int check_bottle(bottle_t* bottle) {
 //check that the contents of a decrypted bottle are sane
 static int check_caps(bottle_t* bottle) {
 	assert(bottle != NULL);
+	assert(bottle->header != NULL);
+	assert(bottle->table  != NULL);
+	assert(bottle->header->size <= MAX_TABLE_LENGTH);
 
-	//TODO: noop for the moment
+	for(int i = 0; i < bottle->header->size; i++) {
+		cap_t* cap = bottle->table + i;
+		if(cap->magic_top != CAP_MAGIC_TOP)
+			return -ECORRUPT;
+		if(cap->magic_bottom != CAP_MAGIC_BOTTOM)
+			return -ECORRUPT;
+	}
+
 	return ESUCCESS;
 }
 
@@ -165,7 +178,7 @@ int bottle_init(bottle_t bottle) {
 	memset(bottle.header, 0, sizeof(bottle_header_t));
 
 	for(int i = 0; i < size; i++) {
-		bottle.table[i].magic_start  = CAP_MAGIC_TOP;
+		bottle.table[i].magic_top    = CAP_MAGIC_TOP;
 		memset(&(bottle.table[i].key.bytes),    0, sizeof(aeskey_t));
 		memset(&(bottle.table[i].issuer.bytes), 0, sizeof(aeskey_t));
 		bottle.table[i].oid          = 0;
