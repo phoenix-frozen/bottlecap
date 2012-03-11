@@ -6,7 +6,6 @@
 #include "bottlecap.h"
 
 //max table length is one 4k page for the moment. to be revised
-#define PAGE_SIZE 4096
 #define MAX_TABLE_LENGTH (PAGE_SIZE/sizeof(cap_t))
 
 #define DO_OR_BAIL(e, op, args...)  \
@@ -207,7 +206,7 @@ int bottle_cap_delete(bottle_t bottle, uint32_t slot) {
 }
 
 //INTER-BOTTLE CAP MIGRATION
-int bottle_cap_export(bottle_t bottle, uint32_t slot, tpm_rsakey_t* rbrk, bool move, tpm_encrypted_cap_t* cap) {
+int bottle_cap_export(bottle_t bottle, uint32_t slot, tpm_rsakey_t* rbrk, int32_t move, tpm_encrypted_cap_t* cap) {
 	return -ENOSYS;
 }
 

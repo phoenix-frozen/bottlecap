@@ -100,11 +100,11 @@ int32_t bottle_cap_delete(bottle_t bottle, uint32_t slot);
  * @param bottle The bottle to operate on.
  * @param slot   The slot containing the cap to export.
  * @param rbrk   The public BRK for the bottle to export to.
- * @param move   Whether to delete the original cap.
+ * @param move   Boolean: whether to delete the original cap.
  * @param cap    Output: {Exported cap}_rBRK (bound to BottleCap PCR values)
  * @return       Error code.
  */
-int32_t bottle_cap_export(bottle_t bottle, uint32_t slot, tpm_rsakey_t* rbrk, bool move, tpm_encrypted_cap_t* cap);
+int32_t bottle_cap_export(bottle_t bottle, uint32_t slot, tpm_rsakey_t* rbrk, int32_t move, tpm_encrypted_cap_t* cap);
 
 //CAP INVOCATION FUNCTIONS
 //TODO: Needham-Schroeder (ie Kerberos) protocol

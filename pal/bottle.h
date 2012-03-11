@@ -13,8 +13,6 @@
 #define BOTTLE_FLAG_SINGLETON  BIT(0) //this bottle uses monotonic counters to ensure non-copying
 #define BOTTLE_FLAG_MIGRATABLE BIT(1) //this bottle may be migrated to another TPM
 
-typedef int32_t bool;
-
 typedef struct {
 	uint32_t magic_top; //0x80771ECA
 
