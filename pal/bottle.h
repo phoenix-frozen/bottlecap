@@ -23,8 +23,8 @@ typedef struct {
 	//TODO: tpm_rsakey_t bsk_public; //to be given to cap issuers to check quotes
 
 	//aes cryptographic stuff; always 128-bit AES
-	//TODO: tpm_aeskey_t bek; //{Bottle Encryption Key}_SRK (bound)
 	aeskey_t bek; //{Bottle Encryption Key}_SRK (bound)
+	aeskey_t biv; //{Bottle Initialization Vector}_SRK (bound)
 
 	//bottle configuration stuff
 	uint32_t     flags; //timed (that is, uses monotonic counters), migratable (off this TPM)

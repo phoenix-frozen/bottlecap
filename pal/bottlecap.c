@@ -22,32 +22,53 @@ do {                                \
 	}                               \
 } while (0)
 
+//generate a 128-bit AES key
+static int generate_aes_key(aeskey_t* key) {
+#ifdef BOTTLE_CAP_TEST
+	printf("BEK is: 0x");
+	for(int i = 0; i < 4; i++) {
+		bottle.header->bek.dwords[i] = (uint32_t)rand();
+		printf("%08x", bottle.header->bek.dwords[i]);
+	}
+	printf("\n");
+#else  //BOTTLE_CAP_TEST
+	//TODO: use TPM's RNG to generate BEK
+	memset(&(bottle.header->bek), 0, sizeof(bottle.header->bek));
+#endif //BOTTLE_CAP_TEST
+
+}
+
 //check the bottle is valid, usable on this machine, signed, etc
 static int check_bottle(bottle_t* bottle) {
 	sha1hash_t sha1data, temp;
 
+	//bottle == NULL is a programming error
 	assert(bottle != NULL);
 
+	//presence of header
 	if(bottle->header == NULL)
 		return -ENOMEM;
+	//presence of table
 	if(bottle->table == NULL)
 		return -ENOMEM;
 
+	//correct header magic
 	if(bottle->header->magic_top != BOTTLE_MAGIC_TOP)
 		return -EINVAL;
 	if(bottle->header->magic_bottom != BOTTLE_MAGIC_BOTTOM)
 		return -EINVAL;
 
+	//correct table dimensions
 	if(bottle->header->size > MAX_TABLE_LENGTH)
 		return -ENOMEM;
 
 	//TODO real signature checking
 
-	//table
+	//table signature
 	sha1_buffer((unsigned char*)(bottle->table), bottle->header->size * sizeof(cap_t), sha1data);
 	DO_OR_BAIL(ESIGFAIL, memcmp, bottle->header->captable_signature, sha1data, sizeof(sha1hash_t));
 
-	//header
+	//header signature
 	memcpy(temp, bottle->header->header_signature, sizeof(sha1hash_t)); //copy out header sig...
 	memset(bottle->header->header_signature, 0, sizeof(sha1hash_t)); //... and zero out that field...
 	sha1_buffer((unsigned char*)bottle->header, sizeof(bottle_header_t), sha1data); //... for hashing.
@@ -59,11 +80,15 @@ static int check_bottle(bottle_t* bottle) {
 
 //check that the contents of a decrypted bottle are sane
 static int check_caps(bottle_t* bottle) {
+	//bottle == NULL is a programming error
 	assert(bottle != NULL);
+
+	//these three were checked in check_bottle, so their failure now would be a programming error
 	assert(bottle->header != NULL);
 	assert(bottle->table  != NULL);
 	assert(bottle->header->size <= MAX_TABLE_LENGTH);
 
+	//correct cap magic
 	for(int i = 0; i < bottle->header->size; i++) {
 		cap_t* cap = bottle->table + i;
 		if(cap->magic_top != CAP_MAGIC_TOP)
@@ -171,12 +196,25 @@ int bottle_init(bottle_t bottle) {
 	if(bottle.header->size > MAX_TABLE_LENGTH)
 		return -ENOMEM;
 
-	//first, clear the header and the table first
-	//TODO: is the header clear necessary?
+	//memorise some important information, and check it
 	uint32_t size  = bottle.header->size;
 	uint32_t flags = bottle.header->flags;
-	memset(bottle.header, 0, sizeof(bottle_header_t));
+	if(flags != 0)
+		return -ENOTSUP;
 
+	//clear the header, and put back the information we borrowed
+	memset(bottle.header, 0, sizeof(bottle_header_t));
+	bottle.header->size  = size;
+	bottle.header->flags = flags;
+
+	//generate the BEK
+	DO_OR_BAIL(0, generate_aes_key(&(bottle.header->bek)));
+
+	//insert magic numbers
+	bottle.header->magic_top = BOTTLE_MAGIC_TOP;
+	bottle.header->magic_bottom = BOTTLE_MAGIC_BOTTOM;
+
+	//format the table
 	for(int i = 0; i < size; i++) {
 		bottle.table[i].magic_top    = CAP_MAGIC_TOP;
 		memset(&(bottle.table[i].key.bytes),    0, sizeof(aeskey_t));
@@ -188,27 +226,7 @@ int bottle_init(bottle_t bottle) {
 		bottle.table[i].magic_bottom = CAP_MAGIC_BOTTOM;
 	}
 
-	bottle.header->size  = size;
-	bottle.header->flags = flags;
-	if(flags != 0)
-		return -ENOTSUP;
-
-#ifdef BOTTLE_CAP_TEST
-	printf("BEK is: 0x");
-	for(int i = 0; i < 4; i++) {
-		bottle.header->bek.dwords[i] = (uint32_t)rand();
-		printf("%08x", bottle.header->bek.dwords[i]);
-	}
-	printf(".\n");
-#else  //BOTTLE_CAP_TEST
-	//TODO: use TPM's RNG to generate BEK
-	memset(&(bottle.header->bek), 0, sizeof(bottle.header->bek));
-#endif //BOTTLE_CAP_TEST
-
-	//insert magic numbers
-	bottle.header->magic_top = BOTTLE_MAGIC_TOP;
-	bottle.header->magic_bottom = BOTTLE_MAGIC_BOTTOM;
-
+	//encrypt and sign
 	DO_OR_BAIL(0, bottle_op_epilogue, &bottle);
 
 	return ESUCCESS;
