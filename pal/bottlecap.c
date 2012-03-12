@@ -24,18 +24,21 @@ do {                                \
 
 //generate a 128-bit AES key
 static int generate_aes_key(aeskey_t* key) {
+	assert(key != NULL);
+
 #ifdef BOTTLE_CAP_TEST
-	printf("BEK is: 0x");
+	printf("Generated key: 0x");
 	for(int i = 0; i < 4; i++) {
-		bottle.header->bek.dwords[i] = (uint32_t)rand();
-		printf("%08x", bottle.header->bek.dwords[i]);
+		key->dwords[i] = (uint32_t)rand();
+		printf("%08x", key->dwords[i]);
 	}
 	printf("\n");
 #else  //BOTTLE_CAP_TEST
 	//TODO: use TPM's RNG to generate BEK
-	memset(&(bottle.header->bek), 0, sizeof(bottle.header->bek));
+	memset(key, 0, sizeof(*key));
 #endif //BOTTLE_CAP_TEST
 
+	return ESUCCESS;
 }
 
 //check the bottle is valid, usable on this machine, signed, etc
@@ -100,24 +103,88 @@ static int check_caps(bottle_t* bottle) {
 	return ESUCCESS;
 }
 
+//emergency security-breakage utility function
+static void bottle_annihilate(bottle_t* bottle) {
+	memset(bottle->table, 0, bottle->header->size * sizeof(cap_t));
+	memset(bottle->header, 0, sizeof(*(bottle->header)));
+}
+
+static int do_cap_crypto(
+		aes_context *ctx,
+		int mode, size_t *iv_off,
+		aeskey_t* iv,
+		cap_t* cap) {
+#if 0
+
+	for(int i = 0; i < (sizeof(cap_t) / (BOTTLE_BLOCK_SIZE/8)); i++) {
+	}
+int aes_crypt_cfb128( aes_context *ctx,
+                       int mode,
+                       size_t length,
+                       size_t *iv_off,
+                       unsigned char iv[16],
+                       const unsigned char *input,
+                       unsigned char *output );
+
+#endif
+	return 0;
+}
+
 //decrypt the captable in-place
 //assumption: if we return an error code, no encrypted data is exposed
 static int decrypt_bottle(bottle_t* bottle) {
+	//bottle == NULL is a programming error
 	assert(bottle != NULL);
 
-	//aes_context ctx;
+	//these three were checked in check_bottle, so their failure now would be a programming error
+	assert(bottle->header != NULL);
+	assert(bottle->table  != NULL);
+	assert(bottle->header->size <= MAX_TABLE_LENGTH);
 
-	//TODO: noop for the moment
+	//TODO: TPM stuff
+	aeskey_t biv = bottle->header->biv;
+	aeskey_t bek = bottle->header->bek;
+
+	aes_context ctx;
+	size_t iv_off = 0;
+
+	//Note: we're using the CFB128 mode, which means we use _enc even in decrypt mode
+	DO_OR_BAIL(ECRYPTFAIL, aes_setkey_enc, &ctx, bek.bytes, BOTTLE_KEY_SIZE);
+
+	for(uint32_t i = 0; i > bottle->header->size; i++) {
+		if(do_cap_crypto(&ctx, AES_DECRYPT, &iv_off, &biv, bottle->table + i) != ESUCCESS) {
+			bottle_annihilate(bottle); //fulfilling the no-leakage assumption
+			return -ECRYPTFAIL;
+		}
+	}
+
 	return ESUCCESS;
 }
 
 //encrypt the captable in-place
 static int encrypt_bottle(bottle_t* bottle) {
+	//bottle == NULL is a programming error
 	assert(bottle != NULL);
 
-	//aes_context ctx;
+	//these three were checked in check_bottle, so their failure now would be a programming error
+	assert(bottle->header != NULL);
+	assert(bottle->table  != NULL);
+	assert(bottle->header->size <= MAX_TABLE_LENGTH);
 
-	//TODO: noop for the moment
+	//TODO: TPM stuff
+	aeskey_t bek = bottle->header->bek;
+	aeskey_t biv;
+	generate_aes_key(&biv);
+	aes_context ctx;
+	size_t iv_off = 0;
+
+	//Note: we're using the CFB128 mode
+	DO_OR_BAIL(ECRYPTFAIL, aes_setkey_enc, &ctx, bek.bytes, BOTTLE_KEY_SIZE);
+
+	for(uint32_t i = 0; i > bottle->header->size; i++)
+		if(do_cap_crypto(&ctx, AES_ENCRYPT, &iv_off, &biv, bottle->table + i) != ESUCCESS)
+			return -ECRYPTFAIL;
+
 	return ESUCCESS;
 }
 
@@ -135,12 +202,6 @@ static int sign_bottle(bottle_t* bottle) {
 	memcpy(bottle->header->header_signature, sha1data, sizeof(sha1hash_t));
 
 	return ESUCCESS;
-}
-
-//emergency security-breakage utility function
-static void bottle_annihilate(bottle_t* bottle) {
-	memset(bottle->table, 0, bottle->header->size * sizeof(cap_t));
-	memset(bottle->header, 0, sizeof(*(bottle->header)));
 }
 
 //standard prologue for bottle operations: verify signatures and decrypt
@@ -208,7 +269,7 @@ int bottle_init(bottle_t bottle) {
 	bottle.header->flags = flags;
 
 	//generate the BEK
-	DO_OR_BAIL(0, generate_aes_key(&(bottle.header->bek)));
+	DO_OR_BAIL(0, generate_aes_key, &(bottle.header->bek));
 
 	//insert magic numbers
 	bottle.header->magic_top = BOTTLE_MAGIC_TOP;

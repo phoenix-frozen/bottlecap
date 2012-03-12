@@ -10,6 +10,9 @@
 
 #define CAP_RIGHT_MIGRATABLE BIT(0) //this cap may be migrated to another bottle
 
+#define BOTTLE_KEY_SIZE 128
+#define BOTTLE_BLOCK_SIZE 128
+
 typedef union {
 	uint32_t dwords[4];
 	uint64_t qwords[2];
@@ -28,7 +31,8 @@ typedef union {
 		//Note: expiry == 0 -> slot is empty
 		uint32_t magic_bottom; //0x1718A9AC
 	};
-	uint8_t blocks[4][16]; //128-bit blocks for AES encryption
+	uint8_t blocks[4][(BOTTLE_BLOCK_SIZE/8)]; //encryption blocks
+	//WARNING: the preceding line makes assumptions about the size of a cap
 } cap_t;
 
 
