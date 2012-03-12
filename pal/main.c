@@ -49,13 +49,23 @@ int main(void) {
 	assert(rv == 0);
 
 	slots = 0;
-	rv = bottle_expire(*bottle, 1000, &slots);
-	printf("bottle_expire(%p, %u): %d\n", bottle, slots, rv);
+	rv = bottle_query_free_slots(*bottle, &slots);
+	printf("bottle_query_free_slots(%p, %u): %d\n", bottle, slots, rv);
 	assert(rv == 0);
 
 	slots = 0;
 	rv = bottle_expire(*bottle, 1000, &slots);
-	printf("bottle_expire(%p, %u): %d\n", bottle, slots, rv);
+	printf("bottle_expire(%p, 1000, %u): %d\n", bottle, slots, rv);
+	assert(rv == 0);
+
+	slots = 0;
+	rv = bottle_query_free_slots(*bottle, &slots);
+	printf("bottle_query_free_slots(%p, %u): %d\n", bottle, slots, rv);
+	assert(rv == 0);
+
+	slots = 0;
+	rv = bottle_expire(*bottle, 1000, &slots);
+	printf("bottle_expire(%p, 1000, %u): %d\n", bottle, slots, rv);
 	assert(rv == 0);
 
 	return 0;

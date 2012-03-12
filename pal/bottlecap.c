@@ -155,6 +155,7 @@ static int decrypt_bottle(bottle_t* bottle) {
 }
 
 //encrypt the captable in-place
+//TODO: should read-only operations still generate a new IV?
 static int encrypt_bottle(bottle_t* bottle) {
 	//bottle == NULL is a programming error
 	assert(bottle != NULL);
