@@ -120,7 +120,7 @@ static int do_cap_crypto(
 
 	DO_OR_BAIL(0, aes_crypt_cfb128, ctx, mode, sizeof(cap_t), iv_off, iv->bytes, temp.bytes, cap->bytes);
 
-	return 0;
+	return ESUCCESS;
 }
 
 //decrypt the captable in-place
@@ -258,6 +258,8 @@ int bottle_init(bottle_t bottle) {
 	uint32_t flags = bottle.header->flags;
 	if(flags != 0)
 		return -ENOTSUP;
+
+	//TODO: we may support preservation of the BRK and BSK
 
 	//clear the header, and put back the information we borrowed
 	memset(bottle.header, 0, sizeof(bottle_header_t));
