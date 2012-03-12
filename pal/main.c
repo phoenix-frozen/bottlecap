@@ -32,6 +32,9 @@ int main(void) {
 
 	return 0;
 #else //BOTTLE_CAP_TEST
+	int rv;
+	uint32_t slots;
+
 	printf("Hello from main(), test edition.\n");
 
 	printf("A bottle_t is %d bytes, or %d bits.\n", sizeof(bottle_t), 8 * sizeof(bottle_t));
@@ -41,11 +44,16 @@ int main(void) {
 	bottle_t* bottle = generate_test_data();
 	printf("bottle: %p\n", bottle);
 
-	int rv = bottle_init(*bottle);
+	rv = bottle_init(*bottle);
 	printf("bottle_init(%p): %d\n", bottle, rv);
 	assert(rv == 0);
 
-	uint32_t slots = 0;
+	slots = 0;
+	rv = bottle_expire(*bottle, 1000, &slots);
+	printf("bottle_expire(%p, %u): %d\n", bottle, slots, rv);
+	assert(rv == 0);
+
+	slots = 0;
 	rv = bottle_expire(*bottle, 1000, &slots);
 	printf("bottle_expire(%p, %u): %d\n", bottle, slots, rv);
 	assert(rv == 0);

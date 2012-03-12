@@ -114,19 +114,12 @@ static int do_cap_crypto(
 		int mode, size_t *iv_off,
 		aeskey_t* iv,
 		cap_t* cap) {
-#if 0
 
-	for(int i = 0; i < (sizeof(cap_t) / (BOTTLE_BLOCK_SIZE/8)); i++) {
-	}
-int aes_crypt_cfb128( aes_context *ctx,
-                       int mode,
-                       size_t length,
-                       size_t *iv_off,
-                       unsigned char iv[16],
-                       const unsigned char *input,
-                       unsigned char *output );
+	cap_t temp;
+	memcpy(&temp, cap, sizeof(*cap));
 
-#endif
+	DO_OR_BAIL(0, aes_crypt_cfb128, ctx, mode, sizeof(cap_t), iv_off, iv->bytes, temp.bytes, cap->bytes);
+
 	return 0;
 }
 
@@ -175,6 +168,7 @@ static int encrypt_bottle(bottle_t* bottle) {
 	aeskey_t bek = bottle->header->bek;
 	aeskey_t biv;
 	generate_aes_key(&biv);
+	bottle->header->biv = biv;
 	aes_context ctx;
 	size_t iv_off = 0;
 
@@ -198,6 +192,7 @@ static int sign_bottle(bottle_t* bottle) {
 	sha1_buffer((unsigned char*)(bottle->table), bottle->header->size * sizeof(cap_t), sha1data);
 	memcpy(bottle->header->captable_signature, sha1data, sizeof(sha1hash_t));
 	//header
+	memset(bottle->header->header_signature, 0, sizeof(sha1hash_t));
 	sha1_buffer((unsigned char*)bottle->header, sizeof(bottle_header_t), sha1data);
 	memcpy(bottle->header->header_signature, sha1data, sizeof(sha1hash_t));
 
