@@ -24,7 +24,7 @@ typedef struct {
 // key from a tpm_rsakey_t
 typedef struct {
 	tpm_aeskey_t key; //{key}_[some TPM-bound RSA key]
-	cap_t cap;        //{cap}_key
+	cap_t cap;        //{cap}_key, using the key itself as IV (yes, this means it should be a session key)
 } tpm_encrypted_cap_t;
 
 //represents a digital signature of a block of data, using a key from a

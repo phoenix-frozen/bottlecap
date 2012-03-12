@@ -81,6 +81,18 @@ static int check_bottle(bottle_t* bottle) {
 	return ESUCCESS;
 }
 
+//check that a cap is sane
+static int check_cap(cap_t* cap) {
+	assert(cap != NULL);
+
+	if(cap->magic_top != CAP_MAGIC_TOP)
+		return -ECORRUPT;
+	if(cap->magic_bottom != CAP_MAGIC_BOTTOM)
+		return -ECORRUPT;
+
+	return ESUCCESS;
+}
+
 //check that the contents of a decrypted bottle are sane
 static int check_caps(bottle_t* bottle) {
 	//bottle == NULL is a programming error
@@ -93,11 +105,7 @@ static int check_caps(bottle_t* bottle) {
 
 	//correct cap magic
 	for(int i = 0; i < bottle->header->size; i++) {
-		cap_t* cap = bottle->table + i;
-		if(cap->magic_top != CAP_MAGIC_TOP)
-			return -ECORRUPT;
-		if(cap->magic_bottom != CAP_MAGIC_BOTTOM)
-			return -ECORRUPT;
+		DO_OR_BAIL(0, check_cap, bottle->table + i);
 	}
 
 	return ESUCCESS;
@@ -349,15 +357,62 @@ int bottle_import(bottle_t bottle, tpm_rsakey_t* brk) {
 }
 
 //CAP INSERTION/DELETION FUNCTIONS
-int bottle_cap_add(bottle_t bottle, tpm_encrypted_cap_t* cap, uint32_t* slot) {
-	return -ENOSYS;
-}
-int bottle_cap_delete(bottle_t bottle, uint32_t slot) {
+int bottle_cap_add(bottle_t bottle, tpm_encrypted_cap_t* cryptcap, uint32_t* slot) {
+	//TODO: before decrypting the whole bottle, we should probably just
+	// load the BRK and check the cap's integrity
+	//TODO: unload BRK on error
+
+	//TODO: for the moment, we just assume a tpm_encrypted_cap_t contains its key in plaintext
+	aeskey_t aeskey = cryptcapcap->key.aeskey;
+	aeskey_t iv = aeskey; //for the moment, the cap will use its key as IV
+	cap_t cap = cryptcap->cap;
+
+	aes_context ctx;
+	size_t iv_off = 0;
+
+	//initialise the AES context
+	//Note: we're using the CFB128 mode, so we use _enc even to decrypt
+	DO_OR_BAIL(ECRYPTFAIL, aes_setkey_enc, &ctx, aeskey.bytes, BOTTLE_KEY_SIZE);
+
+	//decrypt the cap
+	if(do_cap_crypto(&ctx, AES_DECRYPT, &iv_off, &iv, &cap) != ESUCCESS) {
+		//TODO: unload TPM key
+		return -ECRYPTFAIL;
+	}
+
+	//check the cap is valid
+	DO_OR_BAIL(EINVAL, check_cap, &cap);
+
+	//now that we've successfully decrypted the cap, decrypt the bottle
 	DO_OR_BAIL(0, bottle_op_prologue, &bottle);
 
+	//find a free slot
+	uint32_t i;
+	for(i = 0; i < bottle.header->size; i++)
+		if(bottle.table[i].expiry != 0)
+			break;
+
+	//we found a free slot...
+	if(i < bottle.header->size) {
+		//... fill it with the cap...
+		*(bottle.table + i) = cap;
+		//... tell the caller where it is...
+		*slot = i;
+		//... and destroy the cap
+		memset(&cap, 0, sizeof(cap));
+	}
+
+	DO_OR_BAIL(0, bottle_op_epilogue, &bottle);
+
+	return (i < bottle.header->size) ? ESUCCESS : -ENOMEM;
+}
+int bottle_cap_delete(bottle_t bottle, uint32_t slot) {
 	if(slot > bottle.header->size)
 		return -EINVAL;
 
+	DO_OR_BAIL(0, bottle_op_prologue, &bottle);
+
+	//0 expiry date means empty slot
 	bottle.table[slot].expiry = 0;
 
 	DO_OR_BAIL(0, bottle_op_epilogue, &bottle);
