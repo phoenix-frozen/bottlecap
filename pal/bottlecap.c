@@ -353,7 +353,16 @@ int bottle_cap_add(bottle_t bottle, tpm_encrypted_cap_t* cap, uint32_t* slot) {
 	return -ENOSYS;
 }
 int bottle_cap_delete(bottle_t bottle, uint32_t slot) {
-	return -ENOSYS;
+	DO_OR_BAIL(0, bottle_op_prologue, &bottle);
+
+	if(slot > bottle.header->size)
+		return -EINVAL;
+
+	bottle.table[slot].expiry = 0;
+
+	DO_OR_BAIL(0, bottle_op_epilogue, &bottle);
+
+	return ESUCCESS;
 }
 
 //INTER-BOTTLE CAP MIGRATION
