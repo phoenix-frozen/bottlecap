@@ -66,8 +66,8 @@
  * The compiler supports the use of long long.
  *
  * Uncomment if the compiler supports long long.
- */
 #define POLARSSL_HAVE_LONGLONG
+ */
 
 /**
  * \def POLARSSL_HAVE_ASM
