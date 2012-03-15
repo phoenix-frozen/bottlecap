@@ -482,17 +482,17 @@ int bottle_cap_attest(bottle_t bottle, uint32_t slot, uint128_t nonce, uint128_t
 		rv = -ECRYPTFAIL;
 		goto attest_exit;
 	}
-	memcpy(iv.bytes, nonce.bytes, sizeof(iv));
+	iv = nonce;
 	if(aes_crypt_cfb128(&ctx, AES_DECRYPT, sizeof(proof_tmp), &iv_off, iv.bytes, proof.bytes, proof_tmp.bytes) != 0) {
 		rv = -ECRYPTFAIL;
 		goto attest_exit;
 	}
 
 	//copy the proof value into the result buffer
-	memcpy(result.authdata.proof.bytes, proof_tmp.bytes, sizeof(proof_tmp));
+	result.authdata.proof = proof_tmp;
 
 	//getting this far means we can start writing to the output buffer. write the unencrypted data first
-	memcpy(output->nonce.bytes, nonce.bytes, sizeof(nonce));
+	output->nonce = nonce;
 	output->expiry  = expiry;
 	output->urights = urightsmask;
 
@@ -502,7 +502,7 @@ int bottle_cap_attest(bottle_t bottle, uint32_t slot, uint128_t nonce, uint128_t
 		rv = -ECRYPTFAIL;
 		goto attest_exit;
 	}
-	memcpy(iv.bytes, nonce.bytes, sizeof(iv));
+	iv = nonce;
 	iv_off = 0;
 	if(aes_crypt_cfb128(&ctx, AES_ENCRYPT, sizeof(result.authdata), &iv_off, iv.bytes, result.authdata.bytes, output->authdata.bytes) != 0) {
 		rv = -ECRYPTFAIL;
