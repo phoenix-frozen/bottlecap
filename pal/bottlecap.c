@@ -425,5 +425,7 @@ int bottle_cap_export(bottle_t bottle, uint32_t slot, tpm_rsakey_t* rbrk, int32_
 }
 
 //CAP INVOCATION FUNCTIONS
-//TODO: Needham-Schroeder (ie Kerberos) protocol
+int bottle_cap_attest(bottle_t bottle, uint32_t slot, uint128_t nonce, uint128_t proof, uint64_t expiry, uint32_t urightsmask, cap_attestation_block_t* result) {
+	return -ENOSYS;
+}
 
