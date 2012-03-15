@@ -5,6 +5,7 @@
 #include <polarssl/aes.h>
 
 #include "bottlecap.h"
+#include "misc.h"
 
 #ifdef BOTTLE_CAP_TEST
 #include <stdio.h>
@@ -13,14 +14,6 @@
 
 //max table length is one 4k page for the moment. to be revised
 #define MAX_TABLE_LENGTH (PAGE_SIZE/sizeof(cap_t))
-
-#define DO_OR_BAIL(e, op, args...)  \
-do {                                \
-	int rv = op(args);              \
-	if(rv != ESUCCESS) {            \
-		return e == 0 ? rv : -e;    \
-	}                               \
-} while (0)
 
 //generate a 128-bit AES key
 static int generate_aes_key(aeskey_t* key) {
@@ -115,20 +108,6 @@ static int check_caps(bottle_t* bottle) {
 static void bottle_annihilate(bottle_t* bottle) {
 	memset(bottle->table, 0, bottle->header->size * sizeof(cap_t));
 	memset(bottle->header, 0, sizeof(*(bottle->header)));
-}
-
-static int do_cap_crypto(
-		aes_context *ctx,
-		int mode, size_t *iv_off,
-		aeskey_t* iv,
-		cap_t* cap) {
-
-	cap_t temp;
-	memcpy(&temp, cap, sizeof(*cap));
-
-	DO_OR_BAIL(0, aes_crypt_cfb128, ctx, mode, sizeof(cap_t), iv_off, iv->bytes, temp.bytes, cap->bytes);
-
-	return ESUCCESS;
 }
 
 //decrypt the captable in-place
@@ -314,6 +293,9 @@ int bottle_query_free_slots(bottle_t bottle, uint32_t* slots) {
 
 	uint32_t free_slots = 0;
 	for(uint32_t i = 0; i < bottle.header->size; i++) {
+		assert(bottle.table[i].magic_top == CAP_MAGIC_TOP);
+		assert(bottle.table[i].magic_bottom == CAP_MAGIC_BOTTOM);
+
 		if(bottle.table[i].expiry == 0) {
 			free_slots++;
 		}
@@ -333,8 +315,14 @@ int bottle_expire(bottle_t bottle, uint64_t time, uint32_t* slots) {
 
 	uint32_t free_slots = 0;
 	for(uint32_t i = 0; i < bottle.header->size; i++) {
+		assert(bottle.table[i].magic_top == CAP_MAGIC_TOP);
+		assert(bottle.table[i].magic_bottom == CAP_MAGIC_BOTTOM);
+
 		if(bottle.table[i].expiry <= time) {
-			bottle.table[i].expiry = 0;
+			//this cap is to be expired -- obliterate it
+			memset(bottle.table + i, 0, sizeof(cap_t));
+			bottle.table[i].magic_top = CAP_MAGIC_TOP;
+			bottle.table[i].magic_bottom = CAP_MAGIC_BOTTOM;
 		}
 		if(bottle.table[i].expiry == 0) {
 			free_slots++;
@@ -388,9 +376,10 @@ int bottle_cap_add(bottle_t bottle, tpm_encrypted_cap_t* cryptcap, uint32_t* slo
 
 	//find a free slot
 	uint32_t i;
-	for(i = 0; i < bottle.header->size; i++)
-		if(bottle.table[i].expiry != 0)
+	for(i = 0; i < bottle.header->size; i++) {
+		if(bottle.table[i].expiry == 0)
 			break;
+	}
 
 	//we found a free slot...
 	if(i < bottle.header->size) {

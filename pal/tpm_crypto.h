@@ -3,6 +3,8 @@
 
 #include <stdint.h>
 
+#include <aes.h>
+
 #include "cap.h"
 
 typedef unsigned char sha1hash_t[20];
@@ -33,6 +35,8 @@ typedef struct {
 	//TODO: placeholder data structure until I learn a bit more about TPMs
 } tpm_signature_t;
 
+//utility function for {en,de}crypting a capability
+int do_cap_crypto(aes_context *ctx, int mode, size_t *iv_off, aeskey_t* iv, cap_t* cap);
 
 #endif /* __TPM_CRYPTO_H__ */
 
