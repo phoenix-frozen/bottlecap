@@ -143,7 +143,7 @@ static int decrypt_bottle(bottle_t* bottle) {
 
 //encrypt the captable in-place
 //TODO: should read-only operations still generate a new IV?
-static int encrypt_bottle(bottle_t* bottle) {
+static int encrypt_bottle(bottle_t* bottle, int regen) {
 	//bottle == NULL is a programming error
 	assert(bottle != NULL);
 
@@ -155,8 +155,12 @@ static int encrypt_bottle(bottle_t* bottle) {
 	//TODO: TPM stuff
 	aeskey_t bek = bottle->header->bek;
 	aeskey_t biv;
-	generate_aes_key(&biv);
-	bottle->header->biv = biv;
+	if(regen) {
+		generate_aes_key(&biv);
+		bottle->header->biv = biv;
+	} else {
+		biv = bottle->header->biv;
+	}
 	aes_context ctx;
 	size_t iv_off = 0;
 
@@ -205,15 +209,18 @@ static int bottle_op_prologue(bottle_t* bottle) {
 
 	return ESUCCESS;
 }
-//standard epilogue for bottle operations: encrypt and sign
-static int bottle_op_epilogue(bottle_t* bottle) {
+/* standard epilogue for bottle operations: encrypt and sign.
+ * second argument controls whether to regenerate the IV and
+ * signatures; should only be false on a read-only operation
+ */
+static int bottle_op_epilogue(bottle_t* bottle, int regen) {
 	int rv;
 
 	//check that the captable makes sense
 	DO_OR_BAIL(0, check_caps, bottle);
 
 	//encrypt the captable
-	rv = encrypt_bottle(bottle);
+	rv = encrypt_bottle(bottle, regen);
 	if(rv != ESUCCESS) {
 		//if we can't resecure the bottle, kill it
 		bottle_annihilate(bottle);
@@ -221,11 +228,13 @@ static int bottle_op_epilogue(bottle_t* bottle) {
 	}
 
 	//generate signatures
-	rv = sign_bottle(bottle);
-	if(rv != ESUCCESS) {
-		//if we can't resecure the bottle, kill it
-		bottle_annihilate(bottle);
-		return rv;
+	if(regen) {
+		rv = sign_bottle(bottle);
+		if(rv != ESUCCESS) {
+			//if we can't resecure the bottle, kill it
+			bottle_annihilate(bottle);
+			return rv;
+		}
 	}
 
 	return ESUCCESS;
@@ -273,7 +282,7 @@ int bottle_init(bottle_t bottle) {
 	}
 
 	//encrypt and sign
-	DO_OR_BAIL(0, bottle_op_epilogue, &bottle);
+	DO_OR_BAIL(0, bottle_op_epilogue, &bottle, 1);
 
 	return ESUCCESS;
 }
@@ -303,7 +312,7 @@ int bottle_query_free_slots(bottle_t bottle, uint32_t* slots) {
 
 	*slots = free_slots;
 
-	DO_OR_BAIL(0, bottle_op_epilogue, &bottle);
+	DO_OR_BAIL(0, bottle_op_epilogue, &bottle, 0);
 
 	return ESUCCESS;
 }
@@ -331,7 +340,7 @@ int bottle_expire(bottle_t bottle, uint64_t time, uint32_t* slots) {
 
 	*slots = free_slots;
 
-	DO_OR_BAIL(0, bottle_op_epilogue, &bottle);
+	DO_OR_BAIL(0, bottle_op_epilogue, &bottle, 1);
 
 	return ESUCCESS;
 }
@@ -392,7 +401,7 @@ int bottle_cap_add(bottle_t bottle, tpm_encrypted_cap_t* cryptcap, uint32_t* slo
 		memset(&cap, 0, sizeof(cap));
 	}
 
-	DO_OR_BAIL(0, bottle_op_epilogue, &bottle);
+	DO_OR_BAIL(0, bottle_op_epilogue, &bottle, 1);
 
 	return (i < bottle.header->size) ? ESUCCESS : -ENOMEM;
 }
@@ -405,7 +414,7 @@ int bottle_cap_delete(bottle_t bottle, uint32_t slot) {
 	//0 expiry date means empty slot
 	bottle.table[slot].expiry = 0;
 
-	DO_OR_BAIL(0, bottle_op_epilogue, &bottle);
+	DO_OR_BAIL(0, bottle_op_epilogue, &bottle, 1);
 
 	return ESUCCESS;
 }
