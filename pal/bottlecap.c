@@ -511,6 +511,7 @@ int bottle_cap_attest(bottle_t bottle, uint32_t slot, uint128_t nonce, uint128_t
 
 	//generate signature
 	//TODO: generate real signature
+	//XXX: warning, this pointer arithmetic assumes little-endian
 	sha1_buffer((unsigned char*)&(output->nonce), sizeof(output->nonce) + sizeof(output->authdata), output->signature.hash);
 	assert(output->expiry  == expiry);
 	assert(output->urights == urightsmask);

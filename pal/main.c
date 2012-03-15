@@ -269,6 +269,7 @@ int main(void) {
 
 	//check the hash calculation
 	sha1hash_t sha1data;
+	//XXX: warning, this pointer arithmetic may assume little-endian
 	sha1_buffer((unsigned char*)&attest_block, sizeof(attest_block.nonce) + sizeof(attest_block.authdata), sha1data);
 	rv = memcmp(sha1data, attest_block.signature.hash, sizeof(sha1data));
 	assert(rv == 0);
