@@ -97,17 +97,21 @@ int32_t bottle_cap_delete(bottle_t bottle, uint32_t slot);
  * Exports a capability for migration to another bottle. (The remote
  * bottle uses bottle_cap_add to import it.)
  * 
+ * TODO: for performance reasons, this will need to be able to export multiple caps
+ * 
  * @param bottle The bottle to operate on.
  * @param slot   The slot containing the cap to export.
  * @param rbrk   The public BRK for the bottle to export to.
  * @param move   Boolean: whether to delete the original cap.
- * @param cap    Output: {Exported cap}_rBRK (bound to BottleCap PCR values)
+ * @param cap    Output: {Exported cap}_rBRK (bound)
  * @return       Error code.
  */
 int32_t bottle_cap_export(bottle_t bottle, uint32_t slot, tpm_rsakey_t* rbrk, int32_t move, tpm_encrypted_cap_t* cap);
 
 //CAP INVOCATION FUNCTIONS
 //TODO: Needham-Schroeder (ie Kerberos) protocol
+//TODO: need some way for a remote party to anchor the BRK to our TPM
+//TODO: need some way for us to trust a remote BRK, for _export and _cap_export
 
 #endif /* __BOTTLECAP_H__ */
 
