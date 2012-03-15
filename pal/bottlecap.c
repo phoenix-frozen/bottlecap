@@ -62,13 +62,13 @@ static int check_bottle(bottle_t* bottle) {
 
 	//table signature
 	sha1_buffer((unsigned char*)(bottle->table), bottle->header->size * sizeof(cap_t), sha1data);
-	DO_OR_BAIL(ESIGFAIL, memcmp, bottle->header->captable_signature, sha1data, sizeof(sha1hash_t));
+	DO_OR_BAIL(ESIGFAIL, memcmp, bottle->header->captable_signature.hash, sha1data, sizeof(sha1hash_t));
 
 	//header signature
-	memcpy(temp, bottle->header->header_signature, sizeof(sha1hash_t)); //copy out header sig...
-	memset(bottle->header->header_signature, 0, sizeof(sha1hash_t)); //... and zero out that field...
+	memcpy(temp, bottle->header->header_signature.hash, sizeof(sha1hash_t)); //copy out header sig...
+	memset(bottle->header->header_signature.hash, 0, sizeof(sha1hash_t)); //... and zero out that field...
 	sha1_buffer((unsigned char*)bottle->header, sizeof(bottle_header_t), sha1data); //... for hashing.
-	memcpy(bottle->header->header_signature, temp, sizeof(sha1hash_t)); //then copy it back in,
+	memcpy(bottle->header->header_signature.hash, temp, sizeof(sha1hash_t)); //then copy it back in,
 	DO_OR_BAIL(ESIGFAIL, memcmp, temp, sha1data, sizeof(sha1hash_t)); //and do the actual comparison
 
 	return ESUCCESS;
@@ -182,11 +182,11 @@ static int sign_bottle(bottle_t* bottle) {
 	sha1hash_t sha1data;
 	//table
 	sha1_buffer((unsigned char*)(bottle->table), bottle->header->size * sizeof(cap_t), sha1data);
-	memcpy(bottle->header->captable_signature, sha1data, sizeof(sha1hash_t));
+	memcpy(bottle->header->captable_signature.hash, sha1data, sizeof(sha1hash_t));
 	//header
-	memset(bottle->header->header_signature, 0, sizeof(sha1hash_t));
+	memset(bottle->header->header_signature.hash, 0, sizeof(sha1hash_t));
 	sha1_buffer((unsigned char*)bottle->header, sizeof(bottle_header_t), sha1data);
-	memcpy(bottle->header->header_signature, sha1data, sizeof(sha1hash_t));
+	memcpy(bottle->header->header_signature.hash, sha1data, sizeof(sha1hash_t));
 
 	return ESUCCESS;
 }

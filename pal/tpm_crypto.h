@@ -33,6 +33,8 @@ typedef struct {
 // tpm_rsakey_t
 typedef struct {
 	//TODO: placeholder data structure until I learn a bit more about TPMs
+
+	sha1hash_t hash; //SHA1 hash of signed data
 } tpm_signature_t;
 
 //utility function for {en,de}crypting a capability
