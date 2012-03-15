@@ -56,15 +56,15 @@ int main(void) {
 	uint32_t freeslots;
 	uint32_t slot;
 
-	printf("Hello from main(), test edition.\n");
+	printf("Hello from main(), test edition.\n\n");
 
 	printf("A bottle_t is %d bytes, or %d bits.\n", sizeof(bottle_t), 8 * sizeof(bottle_t));
 	printf("A bottle_header_t is %d bytes, or %d bits.\n", sizeof(bottle_header_t), 8 * sizeof(bottle_header_t));
-	printf("A cap_t is %d bytes, or %d bits.\n", sizeof(cap_t), 8 * sizeof(cap_t));
+	printf("A cap_t is %d bytes, or %d bits.\n\n", sizeof(cap_t), 8 * sizeof(cap_t));
 
 	//allocate a new bottle
 	bottle_t* bottle = generate_test_data();
-	printf("bottle: %p\n\n", bottle);
+	printf("bottle: %p\n", bottle);
 
 	//call the init functions
 	rv = bottle_init(*bottle);
@@ -78,20 +78,23 @@ int main(void) {
 	slots = 0;
 	rv = bottle_query_free_slots(*bottle, &slots);
 	freeslots = slots;
-	printf("bottle_query_free_slots(%p, %u): %d\n\n", bottle, slots, rv);
+	printf("bottle_query_free_slots(%p, %u): %d\n", bottle, slots, rv);
 	assert(rv == 0);
 
 	slots = 0;
 	rv = bottle_expire(*bottle, 1000, &slots);
-	printf("bottle_expire(%p, 1000, %u): %d\n\n", bottle, slots, rv);
+	printf("bottle_expire(%p, 1000, %u): %d\n", bottle, slots, rv);
 	assert(rv == 0);
 	assert(freeslots == slots);
 
 	slots = 0;
 	rv = bottle_query_free_slots(*bottle, &slots);
-	printf("bottle_query_free_slots(%p, %u): %d\n\n", bottle, slots, rv);
+	printf("bottle_query_free_slots(%p, %u): %d\n", bottle, slots, rv);
 	assert(rv == 0);
 	assert(freeslots == slots);
+
+	printf("freeslots = %u\n", freeslots);
+	printf("End of test suite 1.");
 
 	/* Intermission 1:
 	 * Allocate and encrypt a cap for future tests.
@@ -124,62 +127,66 @@ int main(void) {
 	 */
 	slot = 0;
 	rv = bottle_cap_add(*bottle, &newcap, &slot);
-	printf("bottle_cap_add(%p, %p, %u): %d\n\n", bottle, &newcap, slot, rv);
+	printf("bottle_cap_add(%p, %p, %u): %d\n", bottle, &newcap, slot, rv);
 	assert(rv == 0);
 
 	slots = 0;
 	rv = bottle_query_free_slots(*bottle, &slots);
-	printf("bottle_query_free_slots(%p, %u): %d\n\n", bottle, slots, rv);
+	printf("bottle_query_free_slots(%p, %u): %d\n", bottle, slots, rv);
 	assert(rv == 0);
 	assert(freeslots == slots + 1);
 
 	rv = bottle_cap_delete(*bottle, slot);
-	printf("bottle_cap_delete(%p, %u): %d\n\n", bottle, slot, rv);
+	printf("bottle_cap_delete(%p, %u): %d\n", bottle, slot, rv);
 	assert(rv == 0);
 
 	slots = 0;
 	rv = bottle_query_free_slots(*bottle, &slots);
-	printf("bottle_query_free_slots(%p, %u): %d\n\n", bottle, slots, rv);
+	printf("bottle_query_free_slots(%p, %u): %d\n", bottle, slots, rv);
 	assert(rv == 0);
 	assert(freeslots == slots);
+
+	printf("End of test suite 2.\n\n");
 
 	/* Test suite 3:
 	 * Add a cap, and then check expiry works correctly.
 	 */
 	slot = 0;
 	rv = bottle_cap_add(*bottle, &newcap, &slot);
-	printf("bottle_cap_add(%p, %p, %u): %d\n\n", bottle, &newcap, slot, rv);
+	printf("bottle_cap_add(%p, %p, %u): %d\n", bottle, &newcap, slot, rv);
 	assert(rv == 0);
 
 	slots = 0;
 	rv = bottle_query_free_slots(*bottle, &slots);
-	printf("bottle_query_free_slots(%p, %u): %d\n\n", bottle, slots, rv);
+	printf("bottle_query_free_slots(%p, %u): %d\n", bottle, slots, rv);
 	assert(rv == 0);
 	assert(freeslots == slots + 1);
 
 	slots = 0;
 	rv = bottle_expire(*bottle, 1000, &slots);
-	printf("bottle_expire(%p, 1000, %u): %d\n\n", bottle, slots, rv);
+	printf("bottle_expire(%p, 1000, %u): %d\n", bottle, slots, rv);
 	assert(rv == 0);
 	assert(freeslots == slots + 1);
 
 	slots = 0;
 	rv = bottle_query_free_slots(*bottle, &slots);
-	printf("bottle_query_free_slots(%p, %u): %d\n\n", bottle, slots, rv);
+	printf("bottle_query_free_slots(%p, %u): %d\n", bottle, slots, rv);
 	assert(rv == 0);
 	assert(freeslots == slots + 1);
 
 	slots = 0;
 	rv = bottle_expire(*bottle, 1001, &slots);
-	printf("bottle_expire(%p, 1001, %u): %d\n\n", bottle, slots, rv);
+	printf("bottle_expire(%p, 1001, %u): %d\n", bottle, slots, rv);
 	assert(rv == 0);
 	assert(freeslots == slots);
 
 	slots = 0;
 	rv = bottle_query_free_slots(*bottle, &slots);
-	printf("bottle_query_free_slots(%p, %u): %d\n\n", bottle, slots, rv);
+	printf("bottle_query_free_slots(%p, %u): %d\n", bottle, slots, rv);
 	assert(rv == 0);
 	assert(freeslots == slots);
+
+	printf("End of test suite 3.\n\n");
 
 	/* Test suite 4:
 	 * Add multiple caps, and then expire them all.
@@ -187,39 +194,41 @@ int main(void) {
 	for(int i = 0; i < 3; i++) {
 		slots = 0;
 		rv = bottle_cap_add(*bottle, &newcap, &slots);
-		printf("bottle_cap_add(%p, %p, %u): %d\n\n", bottle, &newcap, slots, rv);
+		printf("bottle_cap_add(%p, %p, %u): %d\n", bottle, &newcap, slots, rv);
 		assert(rv == 0);
 	}
 
 	slots = 0;
 	rv = bottle_query_free_slots(*bottle, &slots);
-	printf("bottle_query_free_slots(%p, %u): %d\n\n", bottle, slots, rv);
+	printf("bottle_query_free_slots(%p, %u): %d\n", bottle, slots, rv);
 	assert(rv == 0);
 	assert(freeslots == slots + 3);
 
 	slots = 0;
 	rv = bottle_expire(*bottle, 1000, &slots);
-	printf("bottle_expire(%p, 1000, %u): %d\n\n", bottle, slots, rv);
+	printf("bottle_expire(%p, 1000, %u): %d\n", bottle, slots, rv);
 	assert(rv == 0);
 	assert(freeslots == slots + 3);
 
 	slots = 0;
 	rv = bottle_query_free_slots(*bottle, &slots);
-	printf("bottle_query_free_slots(%p, %u): %d\n\n", bottle, slots, rv);
+	printf("bottle_query_free_slots(%p, %u): %d\n", bottle, slots, rv);
 	assert(rv == 0);
 	assert(freeslots == slots + 3);
 
 	slots = 0;
 	rv = bottle_expire(*bottle, 1001, &slots);
-	printf("bottle_expire(%p, 1001, %u): %d\n\n", bottle, slots, rv);
+	printf("bottle_expire(%p, 1001, %u): %d\n", bottle, slots, rv);
 	assert(rv == 0);
 	assert(freeslots == slots);
 
 	slots = 0;
 	rv = bottle_query_free_slots(*bottle, &slots);
-	printf("bottle_query_free_slots(%p, %u): %d\n\n", bottle, slots, rv);
+	printf("bottle_query_free_slots(%p, %u): %d\n", bottle, slots, rv);
 	assert(rv == 0);
 	assert(freeslots == slots);
+
+	printf("End of test suite 4.\n\n");
 
 	printf("All tests succeeded. Goodbye from main(), test edition.\n");
 
