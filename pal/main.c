@@ -230,6 +230,32 @@ int main(void) {
 
 	printf("End of test suite 4.\n\n");
 
+	/* Test suite 5:
+	 * Call unimplemented functions, and make sure they return ENOSYS.
+	 */
+	rv = bottle_destroy(*bottle);
+	printf("bottle_destroy(%p): %d\n", bottle, rv);
+	assert(rv == -ENOTSUP);
+
+	rv = bottle_export(*bottle, NULL, NULL);
+	printf("bottle_export(%p, %p, %p): %d\n", bottle, NULL, NULL, rv);
+	assert(rv == -ENOSYS);
+
+	rv = bottle_import(*bottle, NULL);
+	printf("bottle_import(%p, %p): %d\n", bottle, NULL, rv);
+	assert(rv == -ENOSYS);
+
+	rv = bottle_cap_export(*bottle, 0, NULL, 0, NULL);
+	printf("bottle_cap_export(%p, %u, %p, %d, %p): %d\n", bottle, 0, NULL, 0, NULL, rv);
+	assert(rv == -ENOSYS);
+
+	uint128_t temp = { .qwords = {0, 0} };
+	rv = bottle_cap_attest(*bottle, 0, temp, temp, 0, 0, NULL);
+	printf("bottle_cap_attest(%p, %u, %u, %u, %u, %u, %p): %d\n", bottle, 0, 0, 0, 0, 0, NULL, rv);
+	assert(rv == -ENOSYS);
+
+	printf("End of test suite 5.\n\n");
+
 	printf("All tests succeeded. Goodbye from main(), test edition.\n");
 
 	return 0;
