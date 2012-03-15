@@ -276,14 +276,14 @@ int main(void) {
 	//decrypt the encrypted block
 	cap_attestation_block_t decrypted_attest_block;
 	iv_off = 0;
-	assert(aes_setkey_enc(&ctx, plaincap.key.bytes, BOTTLE_KEY_SIZE) == 0);
+	assert(aes_setkey_enc(&ctx, plaincap.issuer.bytes, BOTTLE_KEY_SIZE) == 0);
 	iv = nonce;
 	assert(aes_crypt_cfb128(&ctx, AES_DECRYPT, sizeof(decrypted_attest_block.authdata), &iv_off, iv.bytes, attest_block.authdata.bytes, decrypted_attest_block.authdata.bytes) == 0);
 
 	//also decrypt the proof
 	uint128_t plainproof;
 	iv_off = 0;
-	assert(aes_setkey_enc(&ctx, plaincap.issuer.bytes, BOTTLE_KEY_SIZE) == 0);
+	assert(aes_setkey_enc(&ctx, plaincap.key.bytes, BOTTLE_KEY_SIZE) == 0);
 	iv = nonce;
 	assert(aes_crypt_cfb128(&ctx, AES_DECRYPT, sizeof(plainproof), &iv_off, iv.bytes, proof.bytes, plainproof.bytes) == 0);
 
