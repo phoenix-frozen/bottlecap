@@ -109,7 +109,43 @@ int32_t bottle_cap_delete(bottle_t bottle, uint32_t slot);
 int32_t bottle_cap_export(bottle_t bottle, uint32_t slot, tpm_rsakey_t* rbrk, int32_t move, tpm_encrypted_cap_t* cap);
 
 //CAP INVOCATION FUNCTIONS
-//TODO: Needham-Schroeder (ie Kerberos) protocol
+/**
+ * Data structure filled by bottle_cap_attest -- read the comment for that funtion
+ * before going any further.
+ */
+typedef struct {
+	uint128_t nonce; //nonce, in plaintext
+	struct {
+		uint128_t proof;     //the decrypted proof value
+		uint64_t  oid;       //cap OID
+		uint64_t  expiry;    //attestation block's expiry date
+		uint64_t  padding_1; //who-cares data; should probably be 0 for safety
+		uint32_t  urights;   //rights mask enabled for this attestation block
+		uint32_t  padding_2; //who-cares data; should probably be 0 for safety
+	} authdata; //{authority data}_cap.key, using nonce as IV
+
+	tpm_signature_t bsk_sig; //signature of the fields above by BSK
+
+	uint64_t expiry;  //repeat of the same fields as above, in plaintext, for easy introspection.
+	uint32_t urights; // should not be used by any security-sensitive code (which should be able
+	                  // see the encrypted versions anyway)
+} cap_attestation_block_t;
+
+/**
+ * Generates a proof of posession of a capability.
+ * 
+ * @param bottle  The bottle to operate on.
+ * @param slot    The slot containing the cap to attest.
+ * @param nonce   Public nonce value.
+ * @param proof   {private proof value}_issuer, using nonce as IV
+ * @param expiry  Expiry time of the issued authority block.
+ * @param urights A mask of user rights to authorise for this block; must be a subset of the cap rights.
+ * @param result  Output: cap attestation block described above.
+ * @return        Error code.
+ */
+int32_t bottle_cap_attest(bottle_t bottle, uint32_t slot, uint128_t nonce, uint128_t proof, uint64_t expiry, uint32_t urightsmask, cap_attestation_block_t* result);
+
+
 //TODO: need some way for a remote party to anchor the BRK to our TPM
 //TODO: need some way for us to trust a remote BRK, for _export and _cap_export
 

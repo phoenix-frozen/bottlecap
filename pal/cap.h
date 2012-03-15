@@ -13,10 +13,12 @@
 #define BOTTLE_KEY_SIZE 128 //in bits
 
 typedef union {
-	uint64_t qwords[BOTTLE_KEY_SIZE / (8 * 8)];
-	uint32_t dwords[BOTTLE_KEY_SIZE / (8 * 4)];
-	uint8_t  bytes [BOTTLE_KEY_SIZE / (8 * 1)];
-} aeskey_t;
+	uint64_t qwords[2];
+	uint32_t dwords[4];
+	uint8_t  bytes [16];
+} uint128_t;
+
+typedef uint128_t aeskey_t;
 
 typedef union {
 	struct {
