@@ -139,6 +139,23 @@ int main(void) {
 	printf("bottle_query_free_slots(%p, %u): %d\n\n", bottle, slots, rv);
 	assert(rv == 0);
 
+	//add in the cap again
+	slots = 0;
+	rv = bottle_cap_add(*bottle, &newcap, &slots);
+	printf("bottle_cap_add(%p, %p, %u): %d\n\n", bottle, &newcap, slots, rv);
+	assert(rv == 0);
+
+	rv = bottle_cap_delete(*bottle, slots);
+	printf("bottle_cap_delete(%p, %u): %d\n\n", bottle, slots, rv);
+	assert(rv == 0);
+
+	slots = 0;
+	rv = bottle_query_free_slots(*bottle, &slots);
+	printf("bottle_query_free_slots(%p, %u): %d\n\n", bottle, slots, rv);
+	assert(rv == 0);
+
+	printf("All tests succeeded. Goodbye from main(), test edition.\n");
+
 	return 0;
 #endif //BOTTLE_CAP_TEST
 }

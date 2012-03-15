@@ -350,7 +350,8 @@ int bottle_cap_add(bottle_t bottle, tpm_encrypted_cap_t* cryptcap, uint32_t* slo
 	// load the BRK and check the cap's integrity
 	//TODO: unload BRK on error
 
-	//TODO: for the moment, we just assume a tpm_encrypted_cap_t contains its key in plaintext
+	//TODO: for the moment, we just assume a tpm_encrypted_cap_t contains
+	//      its key in plaintext. and copy everything out to our stack
 	aeskey_t aeskey = cryptcap->key.aeskey;
 	aeskey_t iv = aeskey; //for the moment, the cap will use its key as IV
 	cap_t cap = cryptcap->cap;
