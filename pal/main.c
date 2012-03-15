@@ -198,6 +198,18 @@ int main(void) {
 	assert(freeslots == slots + 3);
 
 	slots = 0;
+	rv = bottle_expire(*bottle, 1000, &slots);
+	printf("bottle_expire(%p, 1000, %u): %d\n\n", bottle, slots, rv);
+	assert(rv == 0);
+	assert(freeslots == slots + 3);
+
+	slots = 0;
+	rv = bottle_query_free_slots(*bottle, &slots);
+	printf("bottle_query_free_slots(%p, %u): %d\n\n", bottle, slots, rv);
+	assert(rv == 0);
+	assert(freeslots == slots + 3);
+
+	slots = 0;
 	rv = bottle_expire(*bottle, 1001, &slots);
 	printf("bottle_expire(%p, 1001, %u): %d\n\n", bottle, slots, rv);
 	assert(rv == 0);
