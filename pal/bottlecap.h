@@ -115,16 +115,19 @@ int32_t bottle_cap_export(bottle_t bottle, uint32_t slot, tpm_rsakey_t* rbrk, in
  */
 typedef struct {
 	uint128_t nonce; //nonce, in plaintext
-	struct {
-		uint128_t proof;     //the decrypted proof value
-		uint64_t  oid;       //cap OID
-		uint64_t  expiry;    //attestation block's expiry date
-		uint64_t  padding_1; //who-cares data; should probably be 0 for safety
-		uint32_t  urights;   //rights mask enabled for this attestation block
-		uint32_t  padding_2; //who-cares data; should probably be 0 for safety
+	union {
+		struct {
+			uint128_t proof;     //the decrypted proof value
+			uint64_t  oid;       //cap OID
+			uint64_t  expiry;    //attestation block's expiry date
+			uint64_t  padding_1; //who-cares data; should probably be 0 for safety
+			uint32_t  urights;   //rights mask enabled for this attestation block
+			uint32_t  padding_2; //who-cares data; should probably be 0 for safety
+		};
+		unsigned char bytes[48];
 	} authdata; //{authority data}_cap.key, using nonce as IV
 
-	tpm_signature_t bsk_sig; //signature of the fields above by BSK
+	tpm_signature_t signature; //signature of the fields above by BSK
 
 	uint64_t expiry;  //repeat of the same fields as above, in plaintext, for easy introspection.
 	uint32_t urights; // should not be used by any security-sensitive code (which should be able

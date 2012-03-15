@@ -4,9 +4,9 @@
 #include "misc.h"
 
 int do_cap_crypto(
-		aes_context *ctx,
-		int mode, size_t *iv_off,
-		aeskey_t* iv,
+		aes_context *ctx, int mode,
+		size_t *iv_off,
+		uint128_t* iv,
 		cap_t* cap) {
 
 	cap_t temp;

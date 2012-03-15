@@ -38,7 +38,7 @@ typedef struct {
 } tpm_signature_t;
 
 //utility function for {en,de}crypting a capability
-int do_cap_crypto(aes_context *ctx, int mode, size_t *iv_off, aeskey_t* iv, cap_t* cap);
+int do_cap_crypto(aes_context *ctx, int mode, size_t *iv_off, uint128_t* iv, cap_t* cap);
 
 #endif /* __TPM_CRYPTO_H__ */
 

@@ -362,7 +362,7 @@ int bottle_cap_add(bottle_t bottle, tpm_encrypted_cap_t* cryptcap, uint32_t* slo
 	//TODO: for the moment, we just assume a tpm_encrypted_cap_t contains
 	//      its key in plaintext. and copy everything out to our stack
 	aeskey_t aeskey = cryptcap->key.aeskey;
-	aeskey_t iv = aeskey; //for the moment, the cap will use its key as IV
+	uint128_t iv = aeskey; //for the moment, the cap will use its key as IV
 	cap_t cap = cryptcap->cap;
 
 	aes_context ctx;
@@ -380,6 +380,10 @@ int bottle_cap_add(bottle_t bottle, tpm_encrypted_cap_t* cryptcap, uint32_t* slo
 
 	//check the cap is valid
 	DO_OR_BAIL(EINVAL, check_cap, &cap);
+
+	//0 expiry date not allowed
+	if(cap.expiry == 0)
+		return -EINVAL;
 
 	//now that we've successfully decrypted the cap, decrypt the bottle
 	DO_OR_BAIL(0, bottle_op_prologue, &bottle);
@@ -409,12 +413,18 @@ int bottle_cap_delete(bottle_t bottle, uint32_t slot) {
 	if(slot > bottle.header->size)
 		return -EINVAL;
 
+	int resign = 0;
+
 	DO_OR_BAIL(0, bottle_op_prologue, &bottle);
 
-	//0 expiry date means empty slot
-	bottle.table[slot].expiry = 0;
+	if(bottle.table[slot].expiry != 0) {
+		memset(bottle.table + slot, 0, sizeof(cap_t));
+		bottle.table[slot].magic_top = CAP_MAGIC_TOP;
+		bottle.table[slot].magic_bottom = CAP_MAGIC_BOTTOM;
+		resign = 1;
+	}
 
-	DO_OR_BAIL(0, bottle_op_epilogue, &bottle, 1);
+	DO_OR_BAIL(0, bottle_op_epilogue, &bottle, resign);
 
 	return ESUCCESS;
 }
@@ -425,7 +435,89 @@ int bottle_cap_export(bottle_t bottle, uint32_t slot, tpm_rsakey_t* rbrk, int32_
 }
 
 //CAP INVOCATION FUNCTIONS
-int bottle_cap_attest(bottle_t bottle, uint32_t slot, uint128_t nonce, uint128_t proof, uint64_t expiry, uint32_t urightsmask, cap_attestation_block_t* result) {
-	return -ENOSYS;
+int bottle_cap_attest(bottle_t bottle, uint32_t slot, uint128_t nonce, uint128_t proof, uint64_t expiry, uint32_t urightsmask, cap_attestation_block_t* output) {
+	assert(sizeof(output->authdata.bytes) == sizeof(output->authdata));
+
+	if(output == NULL)
+		return -ENOMEM;
+
+	DO_OR_BAIL(0, bottle_op_prologue, &bottle);
+
+	int rv = ESUCCESS;
+
+	//can't attest an empty slot
+	if(bottle.table[slot].expiry == 0) {
+		rv = -EINVAL;
+		goto attest_exit;
+	}
+
+	//trying to include rights you don't have is an error
+	if((urightsmask & (~(bottle.table[slot].urights))) != 0) {
+		rv = -EINVAL;
+		goto attest_exit;
+	}
+
+	if(bottle.table[slot].expiry < expiry)
+		expiry = bottle.table[slot].expiry;
+
+	//storage area for unencrypted authdata
+	cap_attestation_block_t result;
+
+	//fill in everything except the proof, which we don't yet have
+	result.authdata.oid = bottle.table[slot].oid;
+	result.authdata.expiry = expiry;
+	result.authdata.padding_1 = 0;
+	result.authdata.urights = bottle.table[slot].urights & urightsmask; //this is probably redundant, given the check above
+	result.authdata.padding_2 = 0;
+
+	//some variables for AES
+	aes_context ctx;
+	size_t iv_off = 0;
+	uint128_t iv;
+
+	//decrypt the proof value into proof_tmp
+	uint128_t proof_tmp;
+	//Note: we're using the CFB128 mode, so we use _enc even to decrypt
+	if(aes_setkey_enc(&ctx, bottle.table[slot].issuer.bytes, BOTTLE_KEY_SIZE) != 0) {
+		rv = -ECRYPTFAIL;
+		goto attest_exit;
+	}
+	memcpy(iv.bytes, nonce.bytes, sizeof(iv));
+	if(aes_crypt_cfb128(&ctx, AES_DECRYPT, sizeof(proof_tmp), &iv_off, iv.bytes, proof.bytes, proof_tmp.bytes) != 0) {
+		rv = -ECRYPTFAIL;
+		goto attest_exit;
+	}
+
+	//copy the proof value into the result buffer
+	memcpy(result.authdata.proof.bytes, proof_tmp.bytes, sizeof(proof_tmp));
+
+	//getting this far means we can start writing to the output buffer. write the unencrypted data first
+	memcpy(output->nonce.bytes, nonce.bytes, sizeof(nonce));
+	output->expiry  = expiry;
+	output->urights = urightsmask;
+
+	//now encrypt authdata into the output buffer
+	//Note: we're using the CFB128 mode, so we use _enc even to decrypt
+	if(aes_setkey_enc(&ctx, bottle.table[slot].key.bytes, BOTTLE_KEY_SIZE) != 0) {
+		rv = -ECRYPTFAIL;
+		goto attest_exit;
+	}
+	memcpy(iv.bytes, nonce.bytes, sizeof(iv));
+	iv_off = 0;
+	if(aes_crypt_cfb128(&ctx, AES_ENCRYPT, sizeof(result.authdata), &iv_off, iv.bytes, result.authdata.bytes, output->authdata.bytes) != 0) {
+		rv = -ECRYPTFAIL;
+		goto attest_exit;
+	}
+
+	//generate signature
+	//TODO: generate real signature
+	sha1_buffer((unsigned char*)&(output->nonce), sizeof(output->nonce) + sizeof(output->authdata), output->signature.hash);
+	assert(output->expiry  == expiry);
+	assert(output->urights == urightsmask);
+
+attest_exit:
+	DO_OR_BAIL(0, bottle_op_epilogue, &bottle, 0);
+
+	return rv;
 }
 
