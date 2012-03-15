@@ -94,7 +94,7 @@ int main(void) {
 	assert(freeslots == slots);
 
 	printf("freeslots = %u\n", freeslots);
-	printf("End of test suite 1.");
+	printf("End of test suite 1.\n\n");
 
 	/* Intermission 1:
 	 * Allocate and encrypt a cap for future tests.
