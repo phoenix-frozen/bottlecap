@@ -241,52 +241,52 @@ static int bottle_op_epilogue(bottle_t* bottle, int regen) {
 }
 
 //BOTTLE CREATION/DELETION
-int bottle_init(bottle_t bottle) {
-	if(bottle.header == NULL || bottle.table == NULL)
+int bottle_init(bottle_t* bottle) {
+	if(bottle->header == NULL || bottle->table == NULL)
 		return -ENOMEM;
 
 	//impose a maximum size of one page for a table
-	if(bottle.header->size > MAX_TABLE_LENGTH)
+	if(bottle->header->size > MAX_TABLE_LENGTH)
 		return -ENOMEM;
 
 	//memorise some important information, and check it
-	uint32_t size  = bottle.header->size;
-	uint32_t flags = bottle.header->flags;
+	uint32_t size  = bottle->header->size;
+	uint32_t flags = bottle->header->flags;
 	if(flags != 0)
 		return -ENOTSUP;
 
 	//TODO: we may support preservation of the BRK and BSK
 
 	//clear the header, and put back the information we borrowed
-	memset(bottle.header, 0, sizeof(bottle_header_t));
-	bottle.header->size  = size;
-	bottle.header->flags = flags;
+	memset(bottle->header, 0, sizeof(bottle_header_t));
+	bottle->header->size  = size;
+	bottle->header->flags = flags;
 
 	//generate the BEK
-	DO_OR_BAIL(0, generate_aes_key, &(bottle.header->bek));
+	DO_OR_BAIL(0, generate_aes_key, &(bottle->header->bek));
 
 	//insert magic numbers
-	bottle.header->magic_top = BOTTLE_MAGIC_TOP;
-	bottle.header->magic_bottom = BOTTLE_MAGIC_BOTTOM;
+	bottle->header->magic_top = BOTTLE_MAGIC_TOP;
+	bottle->header->magic_bottom = BOTTLE_MAGIC_BOTTOM;
 
 	//format the table
 	for(int i = 0; i < size; i++) {
-		bottle.table[i].magic_top    = CAP_MAGIC_TOP;
-		memset(&(bottle.table[i].key.bytes),    0, sizeof(aeskey_t));
-		memset(&(bottle.table[i].issuer.bytes), 0, sizeof(aeskey_t));
-		bottle.table[i].oid          = 0;
-		bottle.table[i].expiry       = 0;
-		bottle.table[i].urights      = 0;
-		bottle.table[i].srights      = 0;
-		bottle.table[i].magic_bottom = CAP_MAGIC_BOTTOM;
+		bottle->table[i].magic_top    = CAP_MAGIC_TOP;
+		memset(&(bottle->table[i].key.bytes),    0, sizeof(aeskey_t));
+		memset(&(bottle->table[i].issuer.bytes), 0, sizeof(aeskey_t));
+		bottle->table[i].oid          = 0;
+		bottle->table[i].expiry       = 0;
+		bottle->table[i].urights      = 0;
+		bottle->table[i].srights      = 0;
+		bottle->table[i].magic_bottom = CAP_MAGIC_BOTTOM;
 	}
 
 	//encrypt and sign
-	DO_OR_BAIL(0, bottle_op_epilogue, &bottle, 1);
+	DO_OR_BAIL(0, bottle_op_epilogue, bottle, 1);
 
 	return ESUCCESS;
 }
-int bottle_destroy(bottle_t bottle) {
+int bottle_destroy(bottle_t* bottle) {
 	//there's really very little to do here
 	//even blowing away the keys would just be for show
 	//TODO: might become useful once we start using counters
@@ -294,67 +294,67 @@ int bottle_destroy(bottle_t bottle) {
 }
 
 //BOTTLE STATE FUNCTIONS
-int bottle_query_free_slots(bottle_t bottle, uint32_t* slots) {
+int bottle_query_free_slots(bottle_t* bottle, uint32_t* slots) {
 	if(slots == NULL)
 		return -EINVAL;
 
-	DO_OR_BAIL(0, bottle_op_prologue, &bottle);
+	DO_OR_BAIL(0, bottle_op_prologue, bottle);
 
 	uint32_t free_slots = 0;
-	for(uint32_t i = 0; i < bottle.header->size; i++) {
-		assert(bottle.table[i].magic_top == CAP_MAGIC_TOP);
-		assert(bottle.table[i].magic_bottom == CAP_MAGIC_BOTTOM);
+	for(uint32_t i = 0; i < bottle->header->size; i++) {
+		assert(bottle->table[i].magic_top == CAP_MAGIC_TOP);
+		assert(bottle->table[i].magic_bottom == CAP_MAGIC_BOTTOM);
 
-		if(bottle.table[i].expiry == 0) {
+		if(bottle->table[i].expiry == 0) {
 			free_slots++;
 		}
 	}
 
 	*slots = free_slots;
 
-	DO_OR_BAIL(0, bottle_op_epilogue, &bottle, 0);
+	DO_OR_BAIL(0, bottle_op_epilogue, bottle, 0);
 
 	return ESUCCESS;
 }
-int bottle_expire(bottle_t bottle, uint64_t time, uint32_t* slots) {
+int bottle_expire(bottle_t* bottle, uint64_t time, uint32_t* slots) {
 	if(slots == NULL)
 		return -EINVAL;
 
-	DO_OR_BAIL(0, bottle_op_prologue, &bottle);
+	DO_OR_BAIL(0, bottle_op_prologue, bottle);
 
 	uint32_t free_slots = 0;
-	for(uint32_t i = 0; i < bottle.header->size; i++) {
-		assert(bottle.table[i].magic_top == CAP_MAGIC_TOP);
-		assert(bottle.table[i].magic_bottom == CAP_MAGIC_BOTTOM);
+	for(uint32_t i = 0; i < bottle->header->size; i++) {
+		assert(bottle->table[i].magic_top == CAP_MAGIC_TOP);
+		assert(bottle->table[i].magic_bottom == CAP_MAGIC_BOTTOM);
 
-		if(bottle.table[i].expiry <= time) {
+		if(bottle->table[i].expiry <= time) {
 			//this cap is to be expired -- obliterate it
-			memset(bottle.table + i, 0, sizeof(cap_t));
-			bottle.table[i].magic_top = CAP_MAGIC_TOP;
-			bottle.table[i].magic_bottom = CAP_MAGIC_BOTTOM;
+			memset(bottle->table + i, 0, sizeof(cap_t));
+			bottle->table[i].magic_top = CAP_MAGIC_TOP;
+			bottle->table[i].magic_bottom = CAP_MAGIC_BOTTOM;
 		}
-		if(bottle.table[i].expiry == 0) {
+		if(bottle->table[i].expiry == 0) {
 			free_slots++;
 		}
 	}
 
 	*slots = free_slots;
 
-	DO_OR_BAIL(0, bottle_op_epilogue, &bottle, 1);
+	DO_OR_BAIL(0, bottle_op_epilogue, bottle, 1);
 
 	return ESUCCESS;
 }
 
 //INTER-MACHINE BOTTLE MIGRATION FUNCTIONS
-int bottle_export(bottle_t bottle, tpm_rsakey_t* rsrk, tpm_rsakey_t* brk) {
+int bottle_export(bottle_t* bottle, tpm_rsakey_t* rsrk, tpm_rsakey_t* brk) {
 	return -ENOSYS;
 }
-int bottle_import(bottle_t bottle, tpm_rsakey_t* brk) {
+int bottle_import(bottle_t* bottle, tpm_rsakey_t* brk) {
 	return -ENOSYS;
 }
 
 //CAP INSERTION/DELETION FUNCTIONS
-int bottle_cap_add(bottle_t bottle, tpm_encrypted_cap_t* cryptcap, uint32_t* slot) {
+int bottle_cap_add(bottle_t* bottle, tpm_encrypted_cap_t* cryptcap, uint32_t* slot) {
 	//TODO: before decrypting the whole bottle, we should probably just
 	// load the BRK and check the cap's integrity
 	//TODO: unload BRK on error
@@ -386,86 +386,86 @@ int bottle_cap_add(bottle_t bottle, tpm_encrypted_cap_t* cryptcap, uint32_t* slo
 		return -EINVAL;
 
 	//now that we've successfully decrypted the cap, decrypt the bottle
-	DO_OR_BAIL(0, bottle_op_prologue, &bottle);
+	DO_OR_BAIL(0, bottle_op_prologue, bottle);
 
 	//find a free slot
 	uint32_t i;
-	for(i = 0; i < bottle.header->size; i++) {
-		if(bottle.table[i].expiry == 0)
+	for(i = 0; i < bottle->header->size; i++) {
+		if(bottle->table[i].expiry == 0)
 			break;
 	}
 
 	//we found a free slot...
-	if(i < bottle.header->size) {
+	if(i < bottle->header->size) {
 		//... fill it with the cap...
-		*(bottle.table + i) = cap;
+		*(bottle->table + i) = cap;
 		//... tell the caller where it is...
 		*slot = i;
 		//... and destroy the cap
 		memset(&cap, 0, sizeof(cap));
 	}
 
-	DO_OR_BAIL(0, bottle_op_epilogue, &bottle, 1);
+	DO_OR_BAIL(0, bottle_op_epilogue, bottle, 1);
 
-	return (i < bottle.header->size) ? ESUCCESS : -ENOMEM;
+	return (i < bottle->header->size) ? ESUCCESS : -ENOMEM;
 }
-int bottle_cap_delete(bottle_t bottle, uint32_t slot) {
-	if(slot > bottle.header->size)
+int bottle_cap_delete(bottle_t* bottle, uint32_t slot) {
+	if(slot > bottle->header->size)
 		return -EINVAL;
 
 	int resign = 0;
 
-	DO_OR_BAIL(0, bottle_op_prologue, &bottle);
+	DO_OR_BAIL(0, bottle_op_prologue, bottle);
 
-	if(bottle.table[slot].expiry != 0) {
-		memset(bottle.table + slot, 0, sizeof(cap_t));
-		bottle.table[slot].magic_top = CAP_MAGIC_TOP;
-		bottle.table[slot].magic_bottom = CAP_MAGIC_BOTTOM;
+	if(bottle->table[slot].expiry != 0) {
+		memset(bottle->table + slot, 0, sizeof(cap_t));
+		bottle->table[slot].magic_top = CAP_MAGIC_TOP;
+		bottle->table[slot].magic_bottom = CAP_MAGIC_BOTTOM;
 		resign = 1;
 	}
 
-	DO_OR_BAIL(0, bottle_op_epilogue, &bottle, resign);
+	DO_OR_BAIL(0, bottle_op_epilogue, bottle, resign);
 
 	return ESUCCESS;
 }
 
 //INTER-BOTTLE CAP MIGRATION
-int bottle_cap_export(bottle_t bottle, uint32_t slot, tpm_rsakey_t* rbrk, int32_t move, tpm_encrypted_cap_t* cap) {
+int bottle_cap_export(bottle_t* bottle, uint32_t slot, tpm_rsakey_t* rbrk, int32_t move, tpm_encrypted_cap_t* cap) {
 	return -ENOSYS;
 }
 
 //CAP INVOCATION FUNCTIONS
-int bottle_cap_attest(bottle_t bottle, uint32_t slot, uint128_t nonce, uint128_t proof, uint64_t expiry, uint32_t urightsmask, cap_attestation_block_t* output) {
+int bottle_cap_attest(bottle_t* bottle, uint32_t slot, uint128_t nonce, uint128_t proof, uint64_t expiry, uint32_t urightsmask, cap_attestation_block_t* output) {
 	if(output == NULL)
 		return -ENOMEM;
 
-	DO_OR_BAIL(0, bottle_op_prologue, &bottle);
+	DO_OR_BAIL(0, bottle_op_prologue, bottle);
 
 	int rv = ESUCCESS;
 
 	//can't attest an empty slot
-	if(bottle.table[slot].expiry == 0) {
+	if(bottle->table[slot].expiry == 0) {
 		rv = -EINVAL;
 		goto attest_exit;
 	}
 
 	//trying to include rights you don't have is an error
-	if((urightsmask & (~(bottle.table[slot].urights))) != 0) {
+	if((urightsmask & (~(bottle->table[slot].urights))) != 0) {
 		rv = -EINVAL;
 		goto attest_exit;
 	}
 
-	if(bottle.table[slot].expiry < expiry)
-		expiry = bottle.table[slot].expiry;
+	if(bottle->table[slot].expiry < expiry)
+		expiry = bottle->table[slot].expiry;
 
 	//storage area for unencrypted authdata
 	cap_attestation_block_t result;
 
 	//fill in everything except the proof, which we don't yet have
-	result.authdata.oid = bottle.table[slot].oid;
+	result.authdata.oid = bottle->table[slot].oid;
 	result.authdata.expiry = expiry;
 	result.authdata.padding_1 = 0;
-	result.authdata.urights = bottle.table[slot].urights & urightsmask; //this is probably redundant, given the check above
+	result.authdata.urights = bottle->table[slot].urights & urightsmask; //this is probably redundant, given the check above
 	result.authdata.padding_2 = 0;
 
 	//some variables for AES
@@ -476,7 +476,7 @@ int bottle_cap_attest(bottle_t bottle, uint32_t slot, uint128_t nonce, uint128_t
 	//decrypt the proof value into proof_tmp
 	uint128_t proof_tmp;
 	//Note: we're using the CFB128 mode, so we use _enc even to decrypt
-	if(aes_setkey_enc(&ctx, bottle.table[slot].issuer.bytes, BOTTLE_KEY_SIZE) != 0) {
+	if(aes_setkey_enc(&ctx, bottle->table[slot].issuer.bytes, BOTTLE_KEY_SIZE) != 0) {
 		rv = -ECRYPTFAIL;
 		goto attest_exit;
 	}
@@ -496,7 +496,7 @@ int bottle_cap_attest(bottle_t bottle, uint32_t slot, uint128_t nonce, uint128_t
 
 	//now encrypt authdata into the output buffer
 	//Note: we're using the CFB128 mode, so we use _enc even to decrypt
-	if(aes_setkey_enc(&ctx, bottle.table[slot].key.bytes, BOTTLE_KEY_SIZE) != 0) {
+	if(aes_setkey_enc(&ctx, bottle->table[slot].key.bytes, BOTTLE_KEY_SIZE) != 0) {
 		rv = -ECRYPTFAIL;
 		goto attest_exit;
 	}
@@ -515,7 +515,7 @@ int bottle_cap_attest(bottle_t bottle, uint32_t slot, uint128_t nonce, uint128_t
 	assert(output->urights == urightsmask);
 
 attest_exit:
-	DO_OR_BAIL(0, bottle_op_epilogue, &bottle, 0);
+	DO_OR_BAIL(0, bottle_op_epilogue, bottle, 0);
 
 	return rv;
 }

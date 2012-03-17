@@ -73,7 +73,7 @@ int main(void) {
 	printf("bottle: %p\n", bottle);
 
 	//call the init functions
-	rv = bottle_init(*bottle);
+	rv = bottle_init(bottle);
 	printf("bottle_init(%p): %d\n\n", bottle, rv);
 	assert(rv == 0);
 
@@ -86,19 +86,19 @@ int main(void) {
 	START_TEST_SUITE("basic bottle functionality");
 
 	slots = 0;
-	rv = bottle_query_free_slots(*bottle, &slots);
+	rv = bottle_query_free_slots(bottle, &slots);
 	freeslots = slots;
 	printf("bottle_query_free_slots(%p, %u): %d\n", bottle, slots, rv);
 	assert(rv == 0);
 
 	slots = 0;
-	rv = bottle_expire(*bottle, 1000, &slots);
+	rv = bottle_expire(bottle, 1000, &slots);
 	printf("bottle_expire(%p, 1000, %u): %d\n", bottle, slots, rv);
 	assert(rv == 0);
 	assert(freeslots == slots);
 
 	slots = 0;
-	rv = bottle_query_free_slots(*bottle, &slots);
+	rv = bottle_query_free_slots(bottle, &slots);
 	printf("bottle_query_free_slots(%p, %u): %d\n", bottle, slots, rv);
 	assert(rv == 0);
 	assert(freeslots == slots);
@@ -142,22 +142,22 @@ int main(void) {
 	START_TEST_SUITE("single cap add/delete");
 
 	slot = 0;
-	rv = bottle_cap_add(*bottle, &newcap, &slot);
+	rv = bottle_cap_add(bottle, &newcap, &slot);
 	printf("bottle_cap_add(%p, %p, %u): %d\n", bottle, &newcap, slot, rv);
 	assert(rv == 0);
 
 	slots = 0;
-	rv = bottle_query_free_slots(*bottle, &slots);
+	rv = bottle_query_free_slots(bottle, &slots);
 	printf("bottle_query_free_slots(%p, %u): %d\n", bottle, slots, rv);
 	assert(rv == 0);
 	assert(freeslots == slots + 1);
 
-	rv = bottle_cap_delete(*bottle, slot);
+	rv = bottle_cap_delete(bottle, slot);
 	printf("bottle_cap_delete(%p, %u): %d\n", bottle, slot, rv);
 	assert(rv == 0);
 
 	slots = 0;
-	rv = bottle_query_free_slots(*bottle, &slots);
+	rv = bottle_query_free_slots(bottle, &slots);
 	printf("bottle_query_free_slots(%p, %u): %d\n", bottle, slots, rv);
 	assert(rv == 0);
 	assert(freeslots == slots);
@@ -170,36 +170,36 @@ int main(void) {
 	START_TEST_SUITE("single cap add/expire");
 
 	slot = 0;
-	rv = bottle_cap_add(*bottle, &newcap, &slot);
+	rv = bottle_cap_add(bottle, &newcap, &slot);
 	printf("bottle_cap_add(%p, %p, %u): %d\n", bottle, &newcap, slot, rv);
 	assert(rv == 0);
 
 	slots = 0;
-	rv = bottle_query_free_slots(*bottle, &slots);
+	rv = bottle_query_free_slots(bottle, &slots);
 	printf("bottle_query_free_slots(%p, %u): %d\n", bottle, slots, rv);
 	assert(rv == 0);
 	assert(freeslots == slots + 1);
 
 	slots = 0;
-	rv = bottle_expire(*bottle, 1000, &slots);
+	rv = bottle_expire(bottle, 1000, &slots);
 	printf("bottle_expire(%p, 1000, %u): %d\n", bottle, slots, rv);
 	assert(rv == 0);
 	assert(freeslots == slots + 1);
 
 	slots = 0;
-	rv = bottle_query_free_slots(*bottle, &slots);
+	rv = bottle_query_free_slots(bottle, &slots);
 	printf("bottle_query_free_slots(%p, %u): %d\n", bottle, slots, rv);
 	assert(rv == 0);
 	assert(freeslots == slots + 1);
 
 	slots = 0;
-	rv = bottle_expire(*bottle, 1001, &slots);
+	rv = bottle_expire(bottle, 1001, &slots);
 	printf("bottle_expire(%p, 1001, %u): %d\n", bottle, slots, rv);
 	assert(rv == 0);
 	assert(freeslots == slots);
 
 	slots = 0;
-	rv = bottle_query_free_slots(*bottle, &slots);
+	rv = bottle_query_free_slots(bottle, &slots);
 	printf("bottle_query_free_slots(%p, %u): %d\n", bottle, slots, rv);
 	assert(rv == 0);
 	assert(freeslots == slots);
@@ -213,37 +213,37 @@ int main(void) {
 
 	for(int i = 0; i < 3; i++) {
 		slots = 0;
-		rv = bottle_cap_add(*bottle, &newcap, &slots);
+		rv = bottle_cap_add(bottle, &newcap, &slots);
 		printf("bottle_cap_add(%p, %p, %u): %d\n", bottle, &newcap, slots, rv);
 		assert(rv == 0);
 	}
 
 	slots = 0;
-	rv = bottle_query_free_slots(*bottle, &slots);
+	rv = bottle_query_free_slots(bottle, &slots);
 	printf("bottle_query_free_slots(%p, %u): %d\n", bottle, slots, rv);
 	assert(rv == 0);
 	assert(freeslots == slots + 3);
 
 	slots = 0;
-	rv = bottle_expire(*bottle, 1000, &slots);
+	rv = bottle_expire(bottle, 1000, &slots);
 	printf("bottle_expire(%p, 1000, %u): %d\n", bottle, slots, rv);
 	assert(rv == 0);
 	assert(freeslots == slots + 3);
 
 	slots = 0;
-	rv = bottle_query_free_slots(*bottle, &slots);
+	rv = bottle_query_free_slots(bottle, &slots);
 	printf("bottle_query_free_slots(%p, %u): %d\n", bottle, slots, rv);
 	assert(rv == 0);
 	assert(freeslots == slots + 3);
 
 	slots = 0;
-	rv = bottle_expire(*bottle, 1001, &slots);
+	rv = bottle_expire(bottle, 1001, &slots);
 	printf("bottle_expire(%p, 1001, %u): %d\n", bottle, slots, rv);
 	assert(rv == 0);
 	assert(freeslots == slots);
 
 	slots = 0;
-	rv = bottle_query_free_slots(*bottle, &slots);
+	rv = bottle_query_free_slots(bottle, &slots);
 	printf("bottle_query_free_slots(%p, %u): %d\n", bottle, slots, rv);
 	assert(rv == 0);
 	assert(freeslots == slots);
@@ -256,12 +256,12 @@ int main(void) {
 	START_TEST_SUITE("single cap add & attest");
 
 	slot = 0;
-	rv = bottle_cap_add(*bottle, &newcap, &slot);
+	rv = bottle_cap_add(bottle, &newcap, &slot);
 	printf("bottle_cap_add(%p, %p, %u): %d\n", bottle, &newcap, slot, rv);
 	assert(rv == 0);
 
 	slots = 0;
-	rv = bottle_query_free_slots(*bottle, &slots);
+	rv = bottle_query_free_slots(bottle, &slots);
 	printf("bottle_query_free_slots(%p, %u): %d\n", bottle, slots, rv);
 	assert(rv == 0);
 	assert(freeslots == slots + 1);
@@ -281,7 +281,7 @@ int main(void) {
 	assert(aes_crypt_cfb128(&ctx, AES_ENCRYPT, sizeof(proof), &iv_off, iv.bytes, proof.bytes, encproof.bytes) == 0);
 
 	//do the attestation
-	rv = bottle_cap_attest(*bottle, slot, nonce, encproof, 1001, 0, &attest_block);
+	rv = bottle_cap_attest(bottle, slot, nonce, encproof, 1001, 0, &attest_block);
 	printf("bottle_cap_export(%p, %u, 0x%llx%llx, 0x%llx%llx, %llu, %p, %p): %d\n", bottle, slot, nonce.qwords[0], nonce.qwords[1], proof.qwords[0], proof.qwords[1], 1001ULL, (void*)0, &attest_block, rv);
 	assert(rv == 0);
 
@@ -321,19 +321,19 @@ int main(void) {
 	 */
 	START_TEST_SUITE("unimplemented functions");
 
-	rv = bottle_destroy(*bottle);
+	rv = bottle_destroy(bottle);
 	printf("bottle_destroy(%p): %d\n", bottle, rv);
 	assert(rv == -ENOTSUP);
 
-	rv = bottle_export(*bottle, NULL, NULL);
+	rv = bottle_export(bottle, NULL, NULL);
 	printf("bottle_export(%p, %p, %p): %d\n", bottle, NULL, NULL, rv);
 	assert(rv == -ENOSYS);
 
-	rv = bottle_import(*bottle, NULL);
+	rv = bottle_import(bottle, NULL);
 	printf("bottle_import(%p, %p): %d\n", bottle, NULL, rv);
 	assert(rv == -ENOSYS);
 
-	rv = bottle_cap_export(*bottle, 0, NULL, 0, NULL);
+	rv = bottle_cap_export(bottle, 0, NULL, 0, NULL);
 	printf("bottle_cap_export(%p, %u, %p, %d, %p): %d\n", bottle, 0, NULL, 0, NULL, rv);
 	assert(rv == -ENOSYS);
 

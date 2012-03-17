@@ -18,7 +18,7 @@
  * @param bottle Memory where the bottle is to be created.
  * @return       Error code.
  */
-int32_t bottle_init(bottle_t bottle);
+int32_t bottle_init(bottle_t* bottle);
 /**
  * Destroys the given bottle.
  * At the moment simply zeros the relevant memory, but may in future
@@ -28,7 +28,7 @@ int32_t bottle_init(bottle_t bottle);
  * @param bottle Memory where the bottle is to be created.
  * @return       Error code.
  */
-int32_t bottle_destroy(bottle_t bottle);
+int32_t bottle_destroy(bottle_t* bottle);
 
 //BOTTLE STATE FUNCTIONS
 /**
@@ -38,7 +38,7 @@ int32_t bottle_destroy(bottle_t bottle);
  * @param slots  Output: The number of free slots in bottle.
  * @return       Error code.
  */
-int32_t bottle_query_free_slots(bottle_t bottle, uint32_t* slots);
+int32_t bottle_query_free_slots(bottle_t* bottle, uint32_t* slots);
 /**
  * Deletes all caps in the bottle whose expiry dates
  * are less than or equal to time.
@@ -48,7 +48,7 @@ int32_t bottle_query_free_slots(bottle_t bottle, uint32_t* slots);
  * @param slots  Output: The new number of free slots in the bottle.
  * @return       Error code.
  */
-int32_t bottle_expire(bottle_t bottle, uint64_t time, uint32_t* slots);
+int32_t bottle_expire(bottle_t* bottle, uint64_t time, uint32_t* slots);
 
 //INTER-MACHINE BOTTLE MIGRATION FUNCTIONS
 /**
@@ -61,7 +61,7 @@ int32_t bottle_expire(bottle_t bottle, uint64_t time, uint32_t* slots);
  * @param brk    Output: {BRK}_rSRK (TPM key blob, bound)
  * @return       Error code.
  */
-int32_t bottle_export(bottle_t bottle, tpm_rsakey_t* rsrk, tpm_rsakey_t* brk);
+int32_t bottle_export(bottle_t* bottle, tpm_rsakey_t* rsrk, tpm_rsakey_t* brk);
 /**
  * Imports a bottle onto this machine: takes the bound BRK, and uses it to
  * rewrite the bottle header so it is usable on this machine.
@@ -70,7 +70,7 @@ int32_t bottle_export(bottle_t bottle, tpm_rsakey_t* rsrk, tpm_rsakey_t* brk);
  * @param brk    {BRK}_SRK for this machine's TPM
  * @return       Error code.
  */
-int32_t bottle_import(bottle_t bottle, tpm_rsakey_t* brk);
+int32_t bottle_import(bottle_t* bottle, tpm_rsakey_t* brk);
 
 //CAP INSERTION/DELETION FUNCTIONS
 /**
@@ -81,7 +81,7 @@ int32_t bottle_import(bottle_t bottle, tpm_rsakey_t* brk);
  * @param slot   Output: The slot into which cap was inserted.
  * @return       Error code.
  */
-int32_t bottle_cap_add(bottle_t bottle, tpm_encrypted_cap_t* cap, uint32_t* slot);
+int32_t bottle_cap_add(bottle_t* bottle, tpm_encrypted_cap_t* cap, uint32_t* slot);
 /**
  * Deletes a capability from the specified slot. If the slot is empty,
  * this is a no-op.
@@ -90,7 +90,7 @@ int32_t bottle_cap_add(bottle_t bottle, tpm_encrypted_cap_t* cap, uint32_t* slot
  * @param slot   The slot to clear.
  * @return       Error code.
  */
-int32_t bottle_cap_delete(bottle_t bottle, uint32_t slot);
+int32_t bottle_cap_delete(bottle_t* bottle, uint32_t slot);
 
 //INTER-BOTTLE CAP MIGRATION
 /**
@@ -106,7 +106,7 @@ int32_t bottle_cap_delete(bottle_t bottle, uint32_t slot);
  * @param cap    Output: {Exported cap}_rBRK (bound)
  * @return       Error code.
  */
-int32_t bottle_cap_export(bottle_t bottle, uint32_t slot, tpm_rsakey_t* rbrk, int32_t move, tpm_encrypted_cap_t* cap);
+int32_t bottle_cap_export(bottle_t* bottle, uint32_t slot, tpm_rsakey_t* rbrk, int32_t move, tpm_encrypted_cap_t* cap);
 
 //CAP INVOCATION FUNCTIONS
 /**
@@ -146,7 +146,7 @@ typedef struct {
  * @param result  Output: cap attestation block described above.
  * @return        Error code.
  */
-int32_t bottle_cap_attest(bottle_t bottle, uint32_t slot, uint128_t nonce, uint128_t proof, uint64_t expiry, uint32_t urightsmask, cap_attestation_block_t* result);
+int32_t bottle_cap_attest(bottle_t* bottle, uint32_t slot, uint128_t nonce, uint128_t proof, uint64_t expiry, uint32_t urightsmask, cap_attestation_block_t* result);
 
 
 //TODO: need some way for a remote party to anchor the BRK to our TPM
