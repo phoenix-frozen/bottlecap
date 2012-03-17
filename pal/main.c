@@ -44,6 +44,9 @@ static int generate_aes_key(aeskey_t* key) {
 	return ESUCCESS;
 }
 
+#define START_TESTS() int testcount = 1;
+#define START_TEST_SUITE(s) printf("Starting test suite %d: %s\n\n", testcount, (s));
+#define END_TEST_SUITE() printf("End of test suite %d.\n\n", testcount++);
 #endif //BOTTLE_CAP_TEST
 
 int main(void) {
@@ -72,10 +75,14 @@ int main(void) {
 	printf("bottle_init(%p): %d\n\n", bottle, rv);
 	assert(rv == 0);
 
+	START_TESTS();
+
 	/* Test suite 1:
 	 * Basic bottle state functions on an empty bottle
 	 * to check that crypto is working.
 	 */
+	START_TEST_SUITE("basic bottle functionality");
+
 	slots = 0;
 	rv = bottle_query_free_slots(*bottle, &slots);
 	freeslots = slots;
@@ -95,7 +102,8 @@ int main(void) {
 	assert(freeslots == slots);
 
 	printf("freeslots = %u\n", freeslots);
-	printf("End of test suite 1.\n\n");
+
+	END_TEST_SUITE();
 
 	/* Intermission 1:
 	 * Allocate and encrypt a cap for future tests.
@@ -129,6 +137,8 @@ int main(void) {
 	/* Test suite 2:
 	 * Add a cap, and delete it.
 	 */
+	START_TEST_SUITE("single cap add/delete");
+
 	slot = 0;
 	rv = bottle_cap_add(*bottle, &newcap, &slot);
 	printf("bottle_cap_add(%p, %p, %u): %d\n", bottle, &newcap, slot, rv);
@@ -150,11 +160,13 @@ int main(void) {
 	assert(rv == 0);
 	assert(freeslots == slots);
 
-	printf("End of test suite 2.\n\n");
+	END_TEST_SUITE();
 
 	/* Test suite 3:
 	 * Add a cap, and then check expiry works correctly.
 	 */
+	START_TEST_SUITE("single cap add/expire");
+
 	slot = 0;
 	rv = bottle_cap_add(*bottle, &newcap, &slot);
 	printf("bottle_cap_add(%p, %p, %u): %d\n", bottle, &newcap, slot, rv);
@@ -190,11 +202,13 @@ int main(void) {
 	assert(rv == 0);
 	assert(freeslots == slots);
 
-	printf("End of test suite 3.\n\n");
+	END_TEST_SUITE();
 
 	/* Test suite 4:
 	 * Add multiple caps, and then expire them all.
 	 */
+	START_TEST_SUITE("multiple cap add/expire");
+
 	for(int i = 0; i < 3; i++) {
 		slots = 0;
 		rv = bottle_cap_add(*bottle, &newcap, &slots);
@@ -232,11 +246,13 @@ int main(void) {
 	assert(rv == 0);
 	assert(freeslots == slots);
 
-	printf("End of test suite 4.\n\n");
+	END_TEST_SUITE();
 
 	/* Test suite 5:
 	 * Add a cap, do an attestation, and check the results.
 	 */
+	START_TEST_SUITE("single cap add & attest");
+
 	slot = 0;
 	rv = bottle_cap_add(*bottle, &newcap, &slot);
 	printf("bottle_cap_add(%p, %p, %u): %d\n", bottle, &newcap, slot, rv);
@@ -297,11 +313,13 @@ int main(void) {
 	assert(decrypted_attest_block.authdata.padding_1 == 0);
 	assert(decrypted_attest_block.authdata.padding_2 == 0);
 
-	printf("End of test suite 5.\n\n");
+	END_TEST_SUITE();
 
 	/* Test suite 6:
 	 * Call unimplemented functions, and make sure they return ENOSYS.
 	 */
+	START_TEST_SUITE("unimplemented functions");
+
 	rv = bottle_destroy(*bottle);
 	printf("bottle_destroy(%p): %d\n", bottle, rv);
 	assert(rv == -ENOTSUP);
@@ -318,7 +336,7 @@ int main(void) {
 	printf("bottle_cap_export(%p, %u, %p, %d, %p): %d\n", bottle, 0, NULL, 0, NULL, rv);
 	assert(rv == -ENOSYS);
 
-	printf("End of test suite 6.\n\n");
+	END_TEST_SUITE();
 
 	printf("All tests succeeded. Goodbye from main(), test edition.\n");
 
