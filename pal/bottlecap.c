@@ -436,8 +436,6 @@ int bottle_cap_export(bottle_t bottle, uint32_t slot, tpm_rsakey_t* rbrk, int32_
 
 //CAP INVOCATION FUNCTIONS
 int bottle_cap_attest(bottle_t bottle, uint32_t slot, uint128_t nonce, uint128_t proof, uint64_t expiry, uint32_t urightsmask, cap_attestation_block_t* output) {
-	assert(sizeof(output->authdata.bytes) == sizeof(output->authdata));
-
 	if(output == NULL)
 		return -ENOMEM;
 
@@ -522,3 +520,14 @@ attest_exit:
 	return rv;
 }
 
+//make some compile-time guarantees about data structure sizes
+#define COMPILE_TIME_ASSERT(pred) switch(0){case 0:case pred:;}
+
+static void compile_time_asserts(void) __attribute__((unused));
+static void compile_time_asserts(void) {
+	cap_attestation_block_t attest_block;
+	COMPILE_TIME_ASSERT(sizeof(attest_block.authdata) == sizeof(attest_block.authdata.bytes));
+
+	cap_t cap;
+	COMPILE_TIME_ASSERT(sizeof(cap.bytes) == sizeof(cap));
+}

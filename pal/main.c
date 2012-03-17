@@ -3,8 +3,16 @@
 #include "bottle.h"
 #include "bottlecap.h"
 
+#ifndef BOTTLE_CAP_TEST
 
-#ifdef BOTTLE_CAP_TEST
+int main(void) {
+	printf("Hello from main() (PAL)\n");
+
+	return 0;
+}
+
+#else //BOTTLE_CAP_TEST
+
 #include <stdlib.h>
 #include <assert.h>
 #include <aes.h>
@@ -47,14 +55,8 @@ static int generate_aes_key(aeskey_t* key) {
 #define START_TESTS() int testcount = 1;
 #define START_TEST_SUITE(s) printf("Starting test suite %d: %s\n\n", testcount, (s));
 #define END_TEST_SUITE() printf("End of test suite %d.\n\n", testcount++);
-#endif //BOTTLE_CAP_TEST
 
 int main(void) {
-#ifndef BOTTLE_CAP_TEST
-	printf("Hello from main() (PAL)\n");
-
-	return 0;
-#else //BOTTLE_CAP_TEST
 	int rv;
 	uint32_t slots;
 	uint32_t freeslots;
@@ -266,7 +268,6 @@ int main(void) {
 
 	//setup for attestation, including generating proof and nonce
 	cap_attestation_block_t attest_block;
-	assert(sizeof(attest_block.authdata) == sizeof(attest_block.authdata.bytes));
 	uint128_t nonce;
 	uint128_t proof;
 	assert(generate_aes_key(&(nonce)) == 0);
@@ -341,5 +342,6 @@ int main(void) {
 	printf("All tests succeeded. Goodbye from main(), test edition.\n");
 
 	return 0;
-#endif //BOTTLE_CAP_TEST
 }
+
+#endif //BOTTLE_CAP_TEST
