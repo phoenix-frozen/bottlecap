@@ -256,8 +256,15 @@ int main(void) {
 	assert(generate_aes_key(&(nonce)) == 0);
 	assert(generate_aes_key(&(proof)) == 0);
 
+	//encrypt the proof
+	uint128_t encproof;
+	iv_off = 0;
+	assert(aes_setkey_enc(&ctx, plaincap.issuer.bytes, BOTTLE_KEY_SIZE) == 0);
+	iv = nonce;
+	assert(aes_crypt_cfb128(&ctx, AES_ENCRYPT, sizeof(proof), &iv_off, iv.bytes, proof.bytes, encproof.bytes) == 0);
+
 	//do the attestation
-	rv = bottle_cap_attest(*bottle, slot, nonce, proof, 1001, 0, &attest_block);
+	rv = bottle_cap_attest(*bottle, slot, nonce, encproof, 1001, 0, &attest_block);
 	printf("bottle_cap_export(%p, %u, 0x%llx%llx, 0x%llx%llx, %llu, %p, %p): %d\n", bottle, slot, nonce.qwords[0], nonce.qwords[1], proof.qwords[0], proof.qwords[1], 1001ULL, (void*)0, &attest_block, rv);
 	assert(rv == 0);
 
@@ -281,15 +288,8 @@ int main(void) {
 	iv = nonce;
 	assert(aes_crypt_cfb128(&ctx, AES_DECRYPT, sizeof(decrypted_attest_block.authdata), &iv_off, iv.bytes, attest_block.authdata.bytes, decrypted_attest_block.authdata.bytes) == 0);
 
-	//also decrypt the proof
-	uint128_t plainproof;
-	iv_off = 0;
-	assert(aes_setkey_enc(&ctx, plaincap.issuer.bytes, BOTTLE_KEY_SIZE) == 0);
-	iv = nonce;
-	assert(aes_crypt_cfb128(&ctx, AES_DECRYPT, sizeof(plainproof), &iv_off, iv.bytes, proof.bytes, plainproof.bytes) == 0);
-
 	//check all the results
-	rv = memcmp(plainproof.bytes, decrypted_attest_block.authdata.proof.bytes, sizeof(plainproof));
+	rv = memcmp(proof.bytes, decrypted_attest_block.authdata.proof.bytes, sizeof(proof));
 	assert(rv == 0);
 	assert(decrypted_attest_block.authdata.oid == plaincap.oid);
 	assert(decrypted_attest_block.authdata.expiry == attest_block.expiry);
