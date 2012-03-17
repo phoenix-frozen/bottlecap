@@ -69,6 +69,11 @@ int main(void) {
 	printf("A cap_t is %d bytes, or %d bits.\n", sizeof(cap_t), 8 * sizeof(cap_t));
 	printf("A bottle may contain at most %d slots.\n\n", PAGE_SIZE / sizeof(cap_t));
 
+	//variables for AES later
+	aes_context ctx;
+	aeskey_t iv;
+	size_t iv_off;
+
 	//allocate a new bottle
 	bottle_t* bottle = generate_test_data();
 	freeslots = bottle->header->size;
@@ -113,29 +118,30 @@ int main(void) {
 	 * Allocate and encrypt a cap for future tests.
 	 */
 	//allocate a new cap...
-	tpm_encrypted_cap_t newcap = {
-		.cap = {
-			.magic_top = CAP_MAGIC_TOP,
-			.magic_bottom = CAP_MAGIC_BOTTOM,
-			.expiry = 1001,
-			.oid = 0xdeadbeefcafebabeULL,
-		},
+	cap_t plaincap = {
+		.magic_top = CAP_MAGIC_TOP,
+		.magic_bottom = CAP_MAGIC_BOTTOM,
+		.expiry = 1001,
+		.oid = 0xdeadbeefcafebabeULL,
 	};
-	//... generate its keys...
+	//... generate its issuer key
 	//TODO: NDEBUG bug!
-	assert(generate_aes_key(&(newcap.key.aeskey)) == 0);
-	assert(generate_aes_key(&(newcap.cap.issuer)) == 0);
+	assert(generate_aes_key(&(plaincap.issuer)) == 0);
 
-	//... keep a plaintext copy...
-	cap_t plaincap = newcap.cap;
-
-	//...encrypt it...
-	aes_context ctx;
-	aeskey_t iv = newcap.key.aeskey;
-	size_t iv_off = 0;
+	//... allocate the cryptcap, key, and IV...
+	tpm_encrypted_cap_t cryptcap = {
+		.cap = plaincap,
+	};
 	//TODO: NDEBUG bug!
-	assert(aes_setkey_enc(&ctx, newcap.key.aeskey.bytes, BOTTLE_KEY_SIZE) == 0);
-	assert(do_cap_crypto(&ctx, AES_ENCRYPT, &iv_off, &iv, &(newcap.cap)) == 0);
+	assert(generate_aes_key(&(cryptcap.key.aeskey)) == 0);
+	assert(generate_aes_key(&(cryptcap.iv)) == 0);
+
+	//...and encrypt it
+	iv = cryptcap.iv;
+	iv_off = 0;
+	//TODO: NDEBUG bug!
+	assert(aes_setkey_enc(&ctx, cryptcap.key.aeskey.bytes, BOTTLE_KEY_SIZE) == 0);
+	assert(do_cap_crypto(&ctx, AES_ENCRYPT, &iv_off, &iv, &(cryptcap.cap)) == 0);
 
 	/* Test suite 2:
 	 * Add a cap, and delete it.
@@ -143,8 +149,8 @@ int main(void) {
 	START_TEST_SUITE("single cap add/delete");
 
 	slot = 0;
-	rv = bottle_cap_add(bottle, &newcap, &slot);
-	printf("bottle_cap_add(%p, %p, %u): %d\n", bottle, &newcap, slot, rv);
+	rv = bottle_cap_add(bottle, &cryptcap, &slot);
+	printf("bottle_cap_add(%p, %p, %u): %d\n", bottle, &cryptcap, slot, rv);
 	assert(rv == 0);
 
 	slots = 0;
@@ -171,8 +177,8 @@ int main(void) {
 	START_TEST_SUITE("single cap add/expire");
 
 	slot = 0;
-	rv = bottle_cap_add(bottle, &newcap, &slot);
-	printf("bottle_cap_add(%p, %p, %u): %d\n", bottle, &newcap, slot, rv);
+	rv = bottle_cap_add(bottle, &cryptcap, &slot);
+	printf("bottle_cap_add(%p, %p, %u): %d\n", bottle, &cryptcap, slot, rv);
 	assert(rv == 0);
 
 	slots = 0;
@@ -214,8 +220,8 @@ int main(void) {
 
 	for(int i = 0; i < 3; i++) {
 		slots = 0;
-		rv = bottle_cap_add(bottle, &newcap, &slots);
-		printf("bottle_cap_add(%p, %p, %u): %d\n", bottle, &newcap, slots, rv);
+		rv = bottle_cap_add(bottle, &cryptcap, &slots);
+		printf("bottle_cap_add(%p, %p, %u): %d\n", bottle, &cryptcap, slots, rv);
 		assert(rv == 0);
 	}
 
@@ -257,8 +263,8 @@ int main(void) {
 	START_TEST_SUITE("single cap add & attest");
 
 	slot = 0;
-	rv = bottle_cap_add(bottle, &newcap, &slot);
-	printf("bottle_cap_add(%p, %p, %u): %d\n", bottle, &newcap, slot, rv);
+	rv = bottle_cap_add(bottle, &cryptcap, &slot);
+	printf("bottle_cap_add(%p, %p, %u): %d\n", bottle, &cryptcap, slot, rv);
 	assert(rv == 0);
 
 	slots = 0;
@@ -291,6 +297,7 @@ int main(void) {
 	assert(rv == 0);
 
 	//decrypt the encrypted block
+	//TODO: NDEBUG bug!
 	cap_attestation_block_t decrypted_attest_block;
 	iv_off = 0;
 	assert(aes_setkey_enc(&ctx, plaincap.issuer.bytes, BOTTLE_KEY_SIZE) == 0);
