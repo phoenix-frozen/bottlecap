@@ -356,29 +356,26 @@ int bottle_import(bottle_t* bottle, tpm_rsakey_t* brk) {
 int bottle_cap_add(bottle_t* bottle, tpm_encrypted_cap_t* cryptcap, uint32_t* slot) {
 	//TODO: before decrypting the whole bottle, we should probably just
 	// load the BRK and check the cap's integrity
-	//TODO: unload BRK on error
+	//TODO: unload TPM keys on error
 
+	//pull relevant data onto our stack
 	//TODO: for the moment, we just assume a tpm_encrypted_cap_t contains
 	//      its key in plaintext. and copy everything out to our stack
 	aeskey_t aeskey = cryptcap->key.aeskey;
-	uint128_t iv = aeskey; //for the moment, the cap will use its key as IV
+	uint128_t iv = cryptcap->iv;
 	cap_t cap = cryptcap->cap;
 
+	//initialise AES
 	aes_context ctx;
 	size_t iv_off = 0;
-
-	//initialise the AES context
 	//Note: we're using the CFB128 mode, so we use _enc even to decrypt
 	DO_OR_BAIL(ECRYPTFAIL, aes_setkey_enc, &ctx, aeskey.bytes, BOTTLE_KEY_SIZE);
 
 	//decrypt the cap
-	if(do_cap_crypto(&ctx, AES_DECRYPT, &iv_off, &iv, &cap) != ESUCCESS) {
-		//TODO: unload TPM key
-		return -ECRYPTFAIL;
-	}
+	DO_OR_BAIL(ECRYPTFAIL, do_cap_crypto, &ctx, AES_DECRYPT, &iv_off, &iv, &cap);
 
 	//check the cap is valid
-	DO_OR_BAIL(EINVAL, check_cap, &cap);
+	DO_OR_BAIL(0, check_cap, &cap);
 
 	//0 expiry date not allowed
 	if(cap.expiry == 0)
