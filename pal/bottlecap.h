@@ -125,7 +125,7 @@ typedef struct {
 			uint32_t  padding_2; //who-cares data; should probably be 0 for safety
 		};
 		unsigned char bytes[48];
-	} authdata; //{authority data}_cap.issuer, using nonce as IV
+	} authdata; //{authority data}_cap.key, using nonce as IV
 
 	tpm_signature_t signature; //signature of the fields above by BSK
 
@@ -140,7 +140,7 @@ typedef struct {
  * @param bottle  The bottle to operate on.
  * @param slot    The slot containing the cap to attest.
  * @param nonce   Public nonce value.
- * @param proof   {private proof value}_cap.key, using nonce as IV
+ * @param proof   {private proof value}_cap.issuer, using nonce as IV
  * @param expiry  Expiry time of the issued authority block.
  * @param urights A mask of user rights to authorise for this block; must be a subset of the cap rights.
  * @param result  Output: cap attestation block described above.

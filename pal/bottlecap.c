@@ -478,7 +478,7 @@ int bottle_cap_attest(bottle_t bottle, uint32_t slot, uint128_t nonce, uint128_t
 	//decrypt the proof value into proof_tmp
 	uint128_t proof_tmp;
 	//Note: we're using the CFB128 mode, so we use _enc even to decrypt
-	if(aes_setkey_enc(&ctx, bottle.table[slot].key.bytes, BOTTLE_KEY_SIZE) != 0) {
+	if(aes_setkey_enc(&ctx, bottle.table[slot].issuer.bytes, BOTTLE_KEY_SIZE) != 0) {
 		rv = -ECRYPTFAIL;
 		goto attest_exit;
 	}
@@ -498,7 +498,7 @@ int bottle_cap_attest(bottle_t bottle, uint32_t slot, uint128_t nonce, uint128_t
 
 	//now encrypt authdata into the output buffer
 	//Note: we're using the CFB128 mode, so we use _enc even to decrypt
-	if(aes_setkey_enc(&ctx, bottle.table[slot].issuer.bytes, BOTTLE_KEY_SIZE) != 0) {
+	if(aes_setkey_enc(&ctx, bottle.table[slot].key.bytes, BOTTLE_KEY_SIZE) != 0) {
 		rv = -ECRYPTFAIL;
 		goto attest_exit;
 	}
