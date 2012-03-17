@@ -53,8 +53,8 @@ static int generate_aes_key(aeskey_t* key) {
 }
 
 #define START_TESTS() int testcount = 1;
-#define START_TEST_SUITE(s) printf("Starting test suite %d: %s\n\n", testcount, (s));
-#define END_TEST_SUITE() printf("End of test suite %d.\n\n", testcount++);
+#define START_TEST_SUITE(s) printf("\nStarting test suite %d: %s\n\n", testcount, (s));
+#define END_TEST_SUITE() printf("\nEnd of test suite %d.\n\n", testcount++);
 
 int main(void) {
 	int rv;
@@ -66,10 +66,12 @@ int main(void) {
 
 	printf("A bottle_t is %d bytes, or %d bits.\n", sizeof(bottle_t), 8 * sizeof(bottle_t));
 	printf("A bottle_header_t is %d bytes, or %d bits.\n", sizeof(bottle_header_t), 8 * sizeof(bottle_header_t));
-	printf("A cap_t is %d bytes, or %d bits.\n\n", sizeof(cap_t), 8 * sizeof(cap_t));
+	printf("A cap_t is %d bytes, or %d bits.\n", sizeof(cap_t), 8 * sizeof(cap_t));
+	printf("A bottle may contain at most %d slots.\n\n", PAGE_SIZE / sizeof(cap_t));
 
 	//allocate a new bottle
 	bottle_t* bottle = generate_test_data();
+	freeslots = bottle->header->size;
 	printf("bottle: %p\n", bottle);
 
 	//call the init functions
@@ -87,9 +89,9 @@ int main(void) {
 
 	slots = 0;
 	rv = bottle_query_free_slots(bottle, &slots);
-	freeslots = slots;
 	printf("bottle_query_free_slots(%p, %u): %d\n", bottle, slots, rv);
 	assert(rv == 0);
+	assert(freeslots == slots);
 
 	slots = 0;
 	rv = bottle_expire(bottle, 1000, &slots);
@@ -122,7 +124,6 @@ int main(void) {
 	//... generate its keys...
 	//TODO: NDEBUG bug!
 	assert(generate_aes_key(&(newcap.key.aeskey)) == 0);
-	assert(generate_aes_key(&(newcap.cap.key)) == 0);
 	assert(generate_aes_key(&(newcap.cap.issuer)) == 0);
 
 	//... keep a plaintext copy...
@@ -269,20 +270,11 @@ int main(void) {
 	//setup for attestation, including generating proof and nonce
 	cap_attestation_block_t attest_block;
 	uint128_t nonce;
-	uint128_t proof;
 	assert(generate_aes_key(&(nonce)) == 0);
-	assert(generate_aes_key(&(proof)) == 0);
-
-	//encrypt the proof
-	uint128_t encproof;
-	iv_off = 0;
-	assert(aes_setkey_enc(&ctx, plaincap.issuer.bytes, BOTTLE_KEY_SIZE) == 0);
-	iv = nonce;
-	assert(aes_crypt_cfb128(&ctx, AES_ENCRYPT, sizeof(proof), &iv_off, iv.bytes, proof.bytes, encproof.bytes) == 0);
 
 	//do the attestation
-	rv = bottle_cap_attest(bottle, slot, nonce, encproof, 1001, 0, &attest_block);
-	printf("bottle_cap_export(%p, %u, 0x%llx%llx, 0x%llx%llx, %llu, %p, %p): %d\n", bottle, slot, nonce.qwords[0], nonce.qwords[1], proof.qwords[0], proof.qwords[1], 1001ULL, (void*)0, &attest_block, rv);
+	rv = bottle_cap_attest(bottle, slot, nonce, 1001, 0, &attest_block);
+	printf("bottle_cap_export(%p, %u, 0x%llx%llx, %llu, %p, %p): %d\n", bottle, slot, nonce.qwords[0], nonce.qwords[1], 1001ULL, (void*)0, &attest_block, rv);
 	assert(rv == 0);
 
 	//check the plaintext values
@@ -301,13 +293,11 @@ int main(void) {
 	//decrypt the encrypted block
 	cap_attestation_block_t decrypted_attest_block;
 	iv_off = 0;
-	assert(aes_setkey_enc(&ctx, plaincap.key.bytes, BOTTLE_KEY_SIZE) == 0);
+	assert(aes_setkey_enc(&ctx, plaincap.issuer.bytes, BOTTLE_KEY_SIZE) == 0);
 	iv = nonce;
 	assert(aes_crypt_cfb128(&ctx, AES_DECRYPT, sizeof(decrypted_attest_block.authdata), &iv_off, iv.bytes, attest_block.authdata.bytes, decrypted_attest_block.authdata.bytes) == 0);
 
 	//check all the results
-	rv = memcmp(proof.bytes, decrypted_attest_block.authdata.proof.bytes, sizeof(proof));
-	assert(rv == 0);
 	assert(decrypted_attest_block.authdata.oid == plaincap.oid);
 	assert(decrypted_attest_block.authdata.expiry == attest_block.expiry);
 	assert(decrypted_attest_block.authdata.urights == attest_block.urights);

@@ -117,14 +117,13 @@ typedef struct {
 	uint128_t nonce; //nonce, in plaintext
 	union {
 		struct {
-			uint128_t proof;     //the decrypted proof value
 			uint64_t  oid;       //cap OID
 			uint64_t  expiry;    //attestation block's expiry date
 			uint64_t  padding_1; //who-cares data; should probably be 0 for safety
 			uint32_t  urights;   //rights mask enabled for this attestation block
 			uint32_t  padding_2; //who-cares data; should probably be 0 for safety
 		};
-		unsigned char bytes[48];
+		unsigned char bytes[32];
 	} authdata; //{authority data}_cap.key, using nonce as IV
 
 	tpm_signature_t signature; //signature of the fields above by BSK
@@ -140,13 +139,12 @@ typedef struct {
  * @param bottle  The bottle to operate on.
  * @param slot    The slot containing the cap to attest.
  * @param nonce   Public nonce value.
- * @param proof   {private proof value}_cap.issuer, using nonce as IV
  * @param expiry  Expiry time of the issued authority block.
  * @param urights A mask of user rights to authorise for this block; must be a subset of the cap rights.
  * @param result  Output: cap attestation block described above.
  * @return        Error code.
  */
-int32_t bottle_cap_attest(bottle_t* bottle, uint32_t slot, uint128_t nonce, uint128_t proof, uint64_t expiry, uint32_t urightsmask, cap_attestation_block_t* result);
+int32_t bottle_cap_attest(bottle_t* bottle, uint32_t slot, uint128_t nonce, uint64_t expiry, uint32_t urightsmask, cap_attestation_block_t* result);
 
 
 //TODO: need some way for a remote party to anchor the BRK to our TPM

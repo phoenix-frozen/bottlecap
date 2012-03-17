@@ -272,7 +272,6 @@ int bottle_init(bottle_t* bottle) {
 	//format the table
 	for(int i = 0; i < size; i++) {
 		bottle->table[i].magic_top    = CAP_MAGIC_TOP;
-		memset(&(bottle->table[i].key.bytes),    0, sizeof(aeskey_t));
 		memset(&(bottle->table[i].issuer.bytes), 0, sizeof(aeskey_t));
 		bottle->table[i].oid          = 0;
 		bottle->table[i].expiry       = 0;
@@ -435,7 +434,7 @@ int bottle_cap_export(bottle_t* bottle, uint32_t slot, tpm_rsakey_t* rbrk, int32
 }
 
 //CAP INVOCATION FUNCTIONS
-int bottle_cap_attest(bottle_t* bottle, uint32_t slot, uint128_t nonce, uint128_t proof, uint64_t expiry, uint32_t urightsmask, cap_attestation_block_t* output) {
+int bottle_cap_attest(bottle_t* bottle, uint32_t slot, uint128_t nonce, uint64_t expiry, uint32_t urightsmask, cap_attestation_block_t* output) {
 	if(output == NULL)
 		return -ENOMEM;
 
@@ -468,40 +467,22 @@ int bottle_cap_attest(bottle_t* bottle, uint32_t slot, uint128_t nonce, uint128_
 	result.authdata.urights = bottle->table[slot].urights & urightsmask; //this is probably redundant, given the check above
 	result.authdata.padding_2 = 0;
 
-	//some variables for AES
-	aes_context ctx;
-	size_t iv_off = 0;
-	uint128_t iv;
-
-	//decrypt the proof value into proof_tmp
-	uint128_t proof_tmp;
-	//Note: we're using the CFB128 mode, so we use _enc even to decrypt
-	if(aes_setkey_enc(&ctx, bottle->table[slot].issuer.bytes, BOTTLE_KEY_SIZE) != 0) {
-		rv = -ECRYPTFAIL;
-		goto attest_exit;
-	}
-	iv = nonce;
-	if(aes_crypt_cfb128(&ctx, AES_DECRYPT, sizeof(proof_tmp), &iv_off, iv.bytes, proof.bytes, proof_tmp.bytes) != 0) {
-		rv = -ECRYPTFAIL;
-		goto attest_exit;
-	}
-
-	//copy the proof value into the result buffer
-	result.authdata.proof = proof_tmp;
-
 	//getting this far means we can start writing to the output buffer. write the unencrypted data first
 	output->nonce = nonce;
 	output->expiry  = expiry;
 	output->urights = urightsmask;
 
-	//now encrypt authdata into the output buffer
+	//initialise AES state
+	aes_context ctx;
+	size_t iv_off = 0;
+	uint128_t iv = nonce;;
 	//Note: we're using the CFB128 mode, so we use _enc even to decrypt
-	if(aes_setkey_enc(&ctx, bottle->table[slot].key.bytes, BOTTLE_KEY_SIZE) != 0) {
+	if(aes_setkey_enc(&ctx, bottle->table[slot].issuer.bytes, BOTTLE_KEY_SIZE) != 0) {
 		rv = -ECRYPTFAIL;
 		goto attest_exit;
 	}
-	iv = nonce;
-	iv_off = 0;
+
+	//now encrypt authdata into the output buffer
 	if(aes_crypt_cfb128(&ctx, AES_ENCRYPT, sizeof(result.authdata), &iv_off, iv.bytes, result.authdata.bytes, output->authdata.bytes) != 0) {
 		rv = -ECRYPTFAIL;
 		goto attest_exit;
