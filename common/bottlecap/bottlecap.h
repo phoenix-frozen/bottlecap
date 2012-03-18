@@ -3,11 +3,9 @@
 
 #include <stdint.h>
 
-#include <bottlecap/errors.h>
-
 #include "bottle.h"
 #include "cap.h"
-#include "tpm_crypto.h"
+#include "crypto.h"
 
 //BOTTLE CREATION/DELETION
 /**

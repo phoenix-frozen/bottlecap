@@ -1,7 +1,8 @@
 #include <stdio.h>
 
-#include "bottle.h"
-#include "bottlecap.h"
+#include <bottlecap/errors.h>
+#include <bottlecap/bottlecap.h>
+#include <bottlecap/bottle.h>
 
 #ifndef BOTTLE_CAP_TEST
 
@@ -15,10 +16,12 @@ int main(void) {
 
 #include <stdlib.h>
 #include <assert.h>
+
 #include <aes.h>
 #include <sha1.h>
+#include <util.h>
 
-#include "cap.h"
+#include <bottlecap/cap.h>
 #include "tpm_crypto.h"
 
 static void* guaranteed_allocate(size_t size) {

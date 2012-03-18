@@ -4,14 +4,13 @@
 #include <stdint.h>
 
 #include "cap.h"
-#include "tpm_crypto.h"
-#include "util.h"
+#include "crypto.h"
 
 #define BOTTLE_MAGIC_TOP    0x80771ECA
 #define BOTTLE_MAGIC_BOTTOM 0x909ACE17
 
-#define BOTTLE_FLAG_SINGLETON  BIT(0) //this bottle uses monotonic counters to ensure non-copying
-#define BOTTLE_FLAG_MIGRATABLE BIT(1) //this bottle may be migrated to another TPM
+#define BOTTLE_FLAG_SINGLETON  0x1 //this bottle uses monotonic counters to ensure non-copying
+#define BOTTLE_FLAG_MIGRATABLE 0x2 //this bottle may be migrated to another TPM
 
 typedef struct {
 	uint32_t magic_top; //0x80771ECA

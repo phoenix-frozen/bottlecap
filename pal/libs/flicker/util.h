@@ -43,7 +43,9 @@
 #define BUG() /**/
 #define BUG_ON(_p) do { if (_p) BUG(); } while ( 0 )
 
+#ifndef BIT
 #define BIT(x) (1 << (x))
+#endif
 
 /* contants for Inter-Processor Interrupts (IPI) */
 enum

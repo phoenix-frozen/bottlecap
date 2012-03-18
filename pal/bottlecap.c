@@ -4,8 +4,13 @@
 #include <sha1.h>
 #include <polarssl/aes.h>
 
-#include "bottlecap.h"
+#include <bottlecap/errors.h>
+#include <bottlecap/bottlecap.h>
+
+#include <util.h>
+
 #include "misc.h"
+#include "tpm_crypto.h"
 
 #ifdef BOTTLE_CAP_TEST
 #include <stdio.h>
