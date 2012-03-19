@@ -4,11 +4,9 @@
 
 if [ ! -r flicker.in ]
 then
-    echo "No flicker.in to provide to bottlecap instance!"
+    echo "No flicker.in to provide input!"
     exit -1
 fi
-
-exit
 
 # stop if anything goes wrong
 set -e

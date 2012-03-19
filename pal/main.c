@@ -4,9 +4,9 @@
 #include <bottlecap/bottlecap.h>
 #include <bottlecap/bottle.h>
 
-#ifndef BOTTLE_CAP_TEST
-
 #include <bottlecap/bottlecalls.h>
+
+#ifndef BOTTLE_CAP_TEST
 
 #include <params.h>
 #include <util.h>
@@ -487,11 +487,11 @@ int main(void) {
 	FILE* file = fopen("bottle.out", "w");
 	assert(file != NULL);
 
-	int params[2] = {0, sizeof(bottle_header_t) + 8};
+	int params[2] = {BOTTLE_HEADER, sizeof(bottle_header_t) + 8};
 	fwrite(params, sizeof(int), 2, file);
 	fwrite(bottle->header, sizeof(bottle_header_t), 1, file);
+	params[0] = BOTTLE_TABLE;
 	params[1] = sizeof(cap_t) * bottle->header->size;
-	fwrite(params, sizeof(int), 2, file);
 	fwrite(params, sizeof(int), 2, file);
 	fwrite(bottle->table, sizeof(cap_t), bottle->header->size, file);
 
