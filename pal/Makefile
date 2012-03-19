@@ -74,7 +74,7 @@ $(TARGET).test.elf: $(TEST_OBJS)
 	    -o $(@D)/$(@F)
 
 clean:
-	$(RM) $(TARGET).bin $(TARGET).elf $(OBJS)
+	$(RM) $(TARGET).bin $(TARGET).elf $(TARGET).test.elf $(OBJS)
 
 %.o : %.c $(HDRS) $(BUILD_DEPS)
 	$(CC) $(CFLAGS) -c $< -o $@

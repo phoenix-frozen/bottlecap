@@ -5,8 +5,26 @@
 # stop if anything goes wrong
 set -e
 
-# Just in case...
+# Sync filesystems
+echo "Syncing filesystems..."
 sync
+sync
+sync
+sync
+
+# Make a temporary ramfs
+echo "Mounting tmpfs..."
+mkdir -p ramfs
+mount -t tmpfs none ramfs
+
+# Bring down eth0
+echo "Bringing down eth0..."
+ifdown eth0
+modprobe -r e1000e
+
+# Remount root FS read-only
+echo "Remounting root filesystem read-only..."
+mount -fo remount,ro /
 
 # Verify flicker kernel module is installed
 if [ `grep flicker /proc/modules | wc -l` = "0" ]
@@ -73,9 +91,8 @@ sleep 1
 echo -n G > $SYSFSPATH/control
 
 # Read outputs
-echo "Retrieving outputs from Flicker session:"
-cat $SYSFSPATH/data > flicker.out
-hd < flicker.out
+echo "Retrieving outputs from Flicker session..."
+cat $SYSFSPATH/data > ramfs/flicker.out
 
 rmmod flicker
 
@@ -85,6 +102,23 @@ if [ ! -z $PCRS ]
   echo PCRs found at $PCRS
   grep PCR-17 $PCRS
 fi
+
+# Remount root FS read-write
+echo "Remounting root filesystem read-write..."
+mount -fo remount,rw /
+
+# Copy results out of ramfs
+echo "Retrieving results..."
+cp ramfs/flicker.out .
+
+# Drop ramfs
+echo "Dropping tmpfs..."
+umount ramfs
+rmdir ramfs
+
+# Bring eth0 back up
+echo "Reinitialising network..."
+modprobe e1000e
 
 # Re-enable (up to 8) APs
 for i in `seq 1 9`
