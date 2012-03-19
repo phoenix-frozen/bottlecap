@@ -136,7 +136,7 @@ static int decrypt_bottle(bottle_t* bottle) {
 	//Note: we're using the CFB128 mode, which means we use _enc even in decrypt mode
 	DO_OR_BAIL(ECRYPTFAIL, aes_setkey_enc, &ctx, bek.bytes, BOTTLE_KEY_SIZE);
 
-	for(uint32_t i = 0; i > bottle->header->size; i++) {
+	for(uint32_t i = 0; i < bottle->header->size; i++) {
 		if(do_cap_crypto(&ctx, AES_DECRYPT, &iv_off, &biv, bottle->table + i) != ESUCCESS) {
 			bottle_annihilate(bottle); //fulfilling the no-leakage assumption
 			return -ECRYPTFAIL;
@@ -172,7 +172,7 @@ static int encrypt_bottle(bottle_t* bottle, int regen) {
 	//Note: we're using the CFB128 mode
 	DO_OR_BAIL(ECRYPTFAIL, aes_setkey_enc, &ctx, bek.bytes, BOTTLE_KEY_SIZE);
 
-	for(uint32_t i = 0; i > bottle->header->size; i++)
+	for(uint32_t i = 0; i < bottle->header->size; i++)
 		if(do_cap_crypto(&ctx, AES_ENCRYPT, &iv_off, &biv, bottle->table + i) != ESUCCESS)
 			return -ECRYPTFAIL;
 
