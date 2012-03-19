@@ -2,6 +2,14 @@
 
 # Flicker session invocation script for Linux; copes with both AMD and Intel CPUs
 
+if [ ! -r flicker.in ]
+then
+    echo "No flicker.in to provide to bottlecap instance!"
+    exit -1
+fi
+
+exit
+
 # stop if anything goes wrong
 set -e
 
@@ -83,7 +91,8 @@ echo -n m > $SYSFSPATH/control
 echo -n I > $SYSFSPATH/control
 # Try this echo command from the bash prompt and pipe through hd to get:
 #00000000  01 00 00 00 ca fe f0 0d  04 00 00 00 de ad be ef  |................|
-echo -ne \\x01\\x00\\x00\\x00\\x0d\\xf0\\xfe\\xca\\x04\\x00\\x00\\x00\\xef\\xbe\\xad\\xde > $SYSFSPATH/data
+#echo -ne \\x01\\x00\\x00\\x00\\x0d\\xf0\\xfe\\xca\\x04\\x00\\x00\\x00\\xef\\xbe\\xad\\xde > $SYSFSPATH/data
+cat flicker.in > $SYSFSPATH/data
 echo -n i > $SYSFSPATH/control
 
 # Launch Flicker session
