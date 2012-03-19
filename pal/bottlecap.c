@@ -17,9 +17,6 @@
 #include <stdlib.h>
 #endif //BOTTLE_CAP_TEST
 
-//max table length is one 4k page for the moment. to be revised
-#define MAX_TABLE_LENGTH (PAGE_SIZE/sizeof(cap_t))
-
 //generate a 128-bit AES key
 static int generate_aes_key(aeskey_t* key) {
 	assert(key != NULL);

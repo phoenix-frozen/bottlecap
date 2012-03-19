@@ -6,14 +6,131 @@
 
 #ifndef BOTTLE_CAP_TEST
 
+#include <bottlecap/bottlecalls.h>
+
 #include <params.h>
 #include <util.h>
+
+#include "misc.h"
 
 int main(void) {
 	log_event(LOG_LEVEL_VERBOSE, "Hello from main() (PAL)\n");
 	log_event(LOG_LEVEL_VERBOSE, "%d bytes available for output\n", pm_avail());
 
-	return 0;
+	bottle_t bottle;
+
+	//reserve output error code
+	int32_t* rv = (int32_t*)pm_reserve(BOTTLE_CALL, sizeof(int32_t));
+	if(rv == NULL) {
+		log_event(LOG_LEVEL_ERROR, "No space for output!\n");
+		return -ENOMEM;
+	}
+
+	//bring in call number
+	int32_t* call;
+	if(pm_get_addr(BOTTLE_CALL, (char**)&call) != sizeof(int)) {
+		*rv = -EINVAL;
+		return *rv;
+	}
+
+	//bring in bottle header
+	bottle_header_t* header_in;
+	if(pm_get_addr(BOTTLE_HEADER, (char**)&header_in) != sizeof(bottle_header_t)) {
+		*rv = -EINVAL;
+		return *rv;
+	}
+	if(header_in->size >= MAX_TABLE_LENGTH) {
+		*rv = -ENOMEM;
+		return *rv;
+	}
+
+	//allocate header output space and copy
+	bottle.header = (bottle_header_t*)pm_reserve(BOTTLE_HEADER, sizeof(bottle_header_t));
+	if(bottle.header == NULL) {
+		*rv = -ENOMEM;
+		return *rv;
+	}
+	memcpy(bottle.header, header_in, sizeof(bottle_header_t));
+
+	//XXX: header has now been allocated. from here on in, exits must go to main_zero_header
+
+	//allocate table output space
+	bottle.table = (cap_t*)pm_reserve(BOTTLE_TABLE, sizeof(cap_t) * bottle.header->size);
+	if(bottle.table == NULL) {
+		//couldn't reserve output table
+		*rv = -ENOMEM;
+		goto main_zero_header;
+	}
+
+	//XXX: table has now been allocated. from here on in, exits must go to main_zero_table
+
+	//check if we're initting; if not, bring in table and copy to output
+	if(*call == BOTTLE_INIT) {
+		//TODO: load and/or generate TPM keys
+	} else {
+		cap_t* table_in;
+		if(pm_get_addr(BOTTLE_TABLE, (char**)&table_in) != bottle.header->size * sizeof(cap_t)) {
+			//couldn't bring in input table
+			*rv = -EINVAL;
+			goto main_zero_table;
+		}
+		memcpy(bottle.table, table_in, bottle.header->size * sizeof(cap_t));
+
+		//TODO: load TPM keys
+	}
+
+	//XXX: TPM keys have now been loaded. from here on in, exits must go to main_unload_tpm_keys
+
+	//main dispatch table
+	switch (*call) {
+		case BOTTLE_INIT:
+			{
+				*rv = bottle_init(&bottle);
+				break;
+			}
+
+		case BOTTLE_DESTROY:
+			{
+				*rv = bottle_destroy(&bottle);
+				break;
+			}
+
+		case BOTTLE_QUERY_FREE_SLOTS:
+			{
+				uint32_t* slots = (uint32_t*)pm_reserve(BOTTLE_SLOTCOUNT, sizeof(uint32_t));
+				if(slots == NULL) {
+					*rv = -ENOMEM;
+					break;
+				}
+				*rv = bottle_query_free_slots(&bottle, slots);
+				break;
+			}
+
+		case BOTTLE_EXPIRE:
+		case BOTTLE_EXPORT:
+		case BOTTLE_IMPORT:
+		case BOTTLE_CAP_ADD:
+		case BOTTLE_CAP_DELETE:
+		case BOTTLE_CAP_EXPORT:
+		case BOTTLE_NULL:
+		default:
+			*rv = -ENOSYS;
+			break;
+	}
+
+//main_unload_tpm_keys:
+	//TODO: unload TPM keys here
+
+
+	//if our call wasn't successful, zero the output buffers
+	if(rv != ESUCCESS) {
+main_zero_table:
+		memset(bottle.table, 0, bottle.header->size * sizeof(cap_t));
+main_zero_header:
+		memset(bottle.header, 0, sizeof(bottle_header_t));
+	}
+
+	return *rv;
 }
 
 #else //BOTTLE_CAP_TEST
