@@ -9,8 +9,7 @@ int do_cap_crypto(
 		uint128_t* iv,
 		cap_t* cap) {
 
-	cap_t temp;
-	memcpy(&temp, cap, sizeof(temp));
+	cap_t temp = *cap;
 
 	DO_OR_BAIL(0, aes_crypt_cfb128, ctx, mode, sizeof(cap_t), iv_off, iv->bytes, temp.bytes, cap->bytes);
 
