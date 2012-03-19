@@ -6,8 +6,12 @@
 
 #ifndef BOTTLE_CAP_TEST
 
+#include <params.h>
+#include <util.h>
+
 int main(void) {
-	printf("Hello from main() (PAL)\n");
+	log_event(LOG_LEVEL_VERBOSE, "Hello from main() (PAL)\n");
+	log_event(LOG_LEVEL_VERBOSE, "%d bytes available for output\n", pm_avail());
 
 	return 0;
 }
@@ -121,12 +125,12 @@ int main(void) {
 	 * Allocate and encrypt a cap for future tests.
 	 */
 	//allocate a new cap...
-	cap_t plaincap = {
+	cap_t plaincap = { {
 		.magic_top = CAP_MAGIC_TOP,
 		.magic_bottom = CAP_MAGIC_BOTTOM,
 		.expiry = 1001,
 		.oid = 0xdeadbeefcafebabeULL,
-	};
+	} };
 	//... generate its issuer key
 	//TODO: NDEBUG bug!
 	assert(generate_aes_key(&(plaincap.issuer)) == 0);
@@ -265,6 +269,12 @@ int main(void) {
 	 */
 	START_TEST_SUITE("single cap add & attest");
 
+	slots = 0;
+	rv = bottle_query_free_slots(bottle, &slots);
+	printf("bottle_query_free_slots(%p, %u): %d\n", bottle, slots, rv);
+	assert(rv == 0);
+	assert(freeslots == slots);
+
 	slot = 0;
 	rv = bottle_cap_add(bottle, &cryptcap, &slot);
 	printf("bottle_cap_add(%p, %p, %u): %d\n", bottle, &cryptcap, slot, rv);
@@ -339,7 +349,36 @@ int main(void) {
 
 	END_TEST_SUITE();
 
-	printf("All tests succeeded. Goodbye from main(), test edition.\n");
+	printf("All tests succeeded. Emptying bottle\n");
+
+	//empty the bottle again
+	slots = 0;
+	rv = bottle_expire(bottle, 1001, &slots);
+	printf("bottle_expire(%p, 1001, %u): %d\n", bottle, slots, rv);
+	assert(rv == 0);
+	assert(freeslots == slots);
+
+	//sanity check
+	slots = 0;
+	rv = bottle_query_free_slots(bottle, &slots);
+	printf("bottle_query_free_slots(%p, %u): %d\n", bottle, slots, rv);
+	assert(rv == 0);
+	assert(freeslots == slots);
+
+	printf("Bottle empty. Outputting bottle to file.\n");
+
+	FILE* file = fopen("bottle.out", "w");
+	assert(file != NULL);
+
+	int params[2] = {0, sizeof(bottle_header_t) + 8};
+	fwrite(params, sizeof(int), 2, file);
+	fwrite(bottle->header, sizeof(bottle_header_t), 1, file);
+	params[1] = sizeof(cap_t) * bottle->header->size;
+	fwrite(params, sizeof(int), 2, file);
+	fwrite(params, sizeof(int), 2, file);
+	fwrite(bottle->table, sizeof(cap_t), bottle->header->size, file);
+
+	printf("Done. Goodbye from main(), test edition.\n");
 
 	return 0;
 }
