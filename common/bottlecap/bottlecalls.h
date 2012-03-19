@@ -14,7 +14,7 @@ enum {
 
 //param type enum
 enum {
-	BOTTLE_CALL = 0,
+	BOTTLE_CALL = 0x1000,
 	BOTTLE_HEADER,
 	BOTTLE_TABLE,
 	BOTTLE_SLOTCOUNT,

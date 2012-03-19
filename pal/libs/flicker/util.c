@@ -34,7 +34,8 @@
 #include "params.h"
 #endif //BOTTLE_CAP_TEST
 
-#define SERIAL_BASE 0x3f8
+//#define SERIAL_BASE 0x3f8
+#define SERIAL_BASE 0xecb8
 
 struct slb_perf_vals g_perf;
 

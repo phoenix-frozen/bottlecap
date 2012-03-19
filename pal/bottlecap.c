@@ -7,6 +7,8 @@
 #include <bottlecap/errors.h>
 #include <bottlecap/bottlecap.h>
 
+#include <tpm.h>
+
 #include <util.h>
 
 #include "misc.h"
@@ -22,16 +24,25 @@ static int generate_aes_key(aeskey_t* key) {
 	assert(key != NULL);
 
 #ifdef BOTTLE_CAP_TEST
-	printf("Generated key: 0x");
+	//ask libc for a random number
 	for(int i = 0; i < 4; i++) {
 		key->dwords[i] = (uint32_t)rand();
+	}
+#else  //BOTTLE_CAP_TEST
+	//ask the TPM for a random number
+	uint32_t size = sizeof(aeskey_t);
+	DO_OR_BAIL(ECRYPTFAIL, tpm_get_random, 2, key->bytes, &size);
+	if(size != sizeof(aeskey_t))
+		return -ECRYPTFAIL;
+#endif //BOTTLE_CAP_TEST
+
+#if 0
+	printf("Generated key: 0x");
+	for(int i = 0; i < 4; i++) {
 		printf("%08x", key->dwords[i]);
 	}
 	printf("\n");
-#else  //BOTTLE_CAP_TEST
-	//TODO: use TPM's RNG to generate BEK
-	memset(key, 0, sizeof(*key));
-#endif //BOTTLE_CAP_TEST
+#endif
 
 	return ESUCCESS;
 }

@@ -254,6 +254,7 @@
 #define COM2_ADDR        0x2f8
 #define COM3_ADDR        0x3e8
 #define COM4_ADDR        0x2e8
+#define COMA_ADDR        0xecb8
 
 #define GET_LCR_DATABIT(x)  ({                              \
             typeof(x) val = 0;                              \

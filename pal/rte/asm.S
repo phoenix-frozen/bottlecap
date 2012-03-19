@@ -86,11 +86,13 @@
 // this clobbers EAX and EDX
 .macro SayAsm
 #ifndef PERFCRIT
-    mov $0x3fd, %edx // control register for com1
+    //mov $0x3fd, %edx // control register for com1
+    mov $0xecbd, %edx // control register for com1
 1:  in (%dx), %al    // read status into AL
     test $0x20, %al  // check for ready
     je 1b            // keep trying
-    mov $0x3f8, %edx // data register for com1
+    //mov $0x3f8, %edx // data register for com1
+    mov $0xecb8, %edx // data register for sol
     mov $0x40, %al   // output an @ character
     out %al, (%dx)
 #endif
@@ -98,11 +100,13 @@
 
 .macro SayAsm2
 #ifndef PERFCRIT
-    mov $0x3fd, %edx // control register for com1
+    //mov $0x3fd, %edx // control register for com1
+    mov $0xecbd, %edx // control register for sol
 1:  in (%dx), %al    // read status into AL
     test $0x20, %al  // check for ready
     je 1b            // keep trying
-    mov $0x3f8, %edx // data register for com1
+    //mov $0x3f8, %edx // data register for com1
+    mov $0xecb8, %edx // data register for sol
     mov $0x3f, %al   // output a ? character
     out %al, (%dx)
 #endif

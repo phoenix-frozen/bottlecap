@@ -18,6 +18,8 @@ typedef uint8_t sha1hash_t[20];
 //represents an RSA keypair data blob that can be loaded into the TPM
 typedef struct {
 	//TODO: placeholder data structure until I learn a bit more about TPMs
+
+	uint32_t placeholder;
 } tpm_rsakey_t;
 
 //an AES key that is bound/sealed to a TPM state, encrypted with a key
