@@ -4,7 +4,7 @@
 # $< the name of the related file that caused the action.
 # $* the prefix shared by target and dependent files.
 
-.PHONY: all clean test
+.PHONY: all clean test cscope cscope.files
 
 CC=gcc
 RM=rm -f
@@ -22,13 +22,15 @@ CFLAGS += -msoft-float
 CFLAGS += -fno-jump-tables
 CFLAGS += -fno-stack-protector
 all: CFLAGS += -fno-builtin -I$(CURDIR)/rte
+all: CFLAGS += -DNDEBUG -DPERFCRIT
 
-CFLAGS += -DnotPERFCRIT
+#CFLAGS += -DnotPERFCRIT
 CFLAGS += -DMIN_LOG_LEVEL=1
 test: CFLAGS += -DBOTTLE_CAP_TEST
 
 AFLAGS += -D__ASSEMBLY__
 AFLAGS += $(INCLUDES:%=-I%)
+all: AFLAGS += -DNDEBUG -DPERFCRIT
 all: AFLAGS += -I$(CURDIR)/rte
 
 LDFLAGS	+= -melf_i386
@@ -75,6 +77,13 @@ $(TARGET).test.elf: $(TEST_OBJS)
 
 clean:
 	$(RM) $(TARGET).bin $(TARGET).elf $(TARGET).test.elf $(OBJS)
+
+cscope.files:
+	find `pwd` -iname \*.[chs] >cscope.files
+	find `readlink -f ../common` -iname \*.[chs] >>cscope.files
+
+cscope: cscope.files
+	cscope -q -b -k
 
 %.o : %.c $(HDRS) $(BUILD_DEPS)
 	$(CC) $(CFLAGS) -c $< -o $@

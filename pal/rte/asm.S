@@ -453,22 +453,30 @@ cpu_common:
 
     movl  %ss:g_phys_base_addr(%ebp), %eax
     pushl %eax
+#ifndef PERFCRIT
     call slb_outlong
+#endif //PERFCRIT
     popl %eax
     movl %ds:g_phys_base_addr(%ebp), %eax
     pushl %eax
+#ifndef PERFCRIT
     call slb_outlong
+#endif //PERFCRIT
     popl %eax
 
     movl $(gdt), %ebx
     movl %ds:(ds_flicker_sel)(%ebp, %ebx), %eax /* ring 3 data */
     pushl %eax
+#ifndef PERFCRIT
     call slb_outlong
+#endif //PERFCRIT
     popl %eax
     movl $(gdt), %ebx
     movl %ds:(ds_flicker_sel+4)(%ebp, %ebx), %eax /* ring 3 data */
     pushl %eax
+#ifndef PERFCRIT
     call slb_outlong
+#endif //PERFCRIT
     popl %eax
 
     /* Load ring 3 DS */
@@ -479,18 +487,24 @@ cpu_common:
     xor %eax, %eax
     movl %ds, %eax
     pushl %eax
+#ifndef PERFCRIT
     call slb_outlong
+#endif //PERFCRIT
     popl %eax
 
     movl $(gdt), %ebx
     movl %ds:(ds_flicker_sel)(%ebx), %eax /* ring 3 data */
     pushl %eax
+#ifndef PERFCRIT
     call slb_outlong
+#endif //PERFCRIT
     popl %eax
     movl $(gdt), %ebx
     movl %ds:(ds_flicker_sel+4)(%ebx), %eax /* ring 3 data */
     pushl %eax
+#ifndef PERFCRIT
     call slb_outlong
+#endif //PERFCRIT
     popl %eax
 
     /* Load ring 3 DS, ES */

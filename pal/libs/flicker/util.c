@@ -244,6 +244,7 @@ slb_serial_init()
     outb(SERIAL_BASE+0x4, 0x03);
 }
 
+#ifndef PERFCRIT
 /*
  * if 'prefix' != NULL, print it before each line of hex string
  */
@@ -258,3 +259,4 @@ void print_hex(const char *prefix, const void *prtptr, size_t size)
     printf("\n");
 }
 
+#endif //PERFCRIT

@@ -47,6 +47,8 @@
 //serial_port_t g_com_port = {115200, 0, 0x3, COM1_ADDR}; /* com1,115200,8n1 */
 serial_port_t g_com_port = {115200, 0, 0x3, COMA_ADDR}; /* sol,115200,8n1 */
 
+#ifndef PERFCRIT
+
 static void comc_putchar(int c)
 {
     int wait;
@@ -88,3 +90,4 @@ void comc_puts(const char *s, unsigned int cnt)
     }
 }
 
+#endif //PERFCRIT

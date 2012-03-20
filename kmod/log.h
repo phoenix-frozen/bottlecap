@@ -5,6 +5,20 @@
 #ifndef _LOG_H_
 #define _LOG_H_
 
+#ifdef NDEBUG
+
+#define dbg(format, arg...)
+#define logit(format, arg...)
+#define error(format, arg...)
+
+#define assert(expr)
+
+#define serial_outchar(c)
+#define serial_out_string(s)
+#define dump_bytes(b, l)
+
+#else //NDEBUG
+
 #ifndef _WIN32
     #include <linux/device.h>
     #include <linux/input.h>
@@ -91,6 +105,8 @@
 extern void dump_bytes(unsigned char *bytes, int len);
 extern void virt_through_pt(unsigned long cr3val, unsigned long virt);
 
+#endif //NDEBUG
+
 /*
  * If one makes changes that crash the system, the kernel's normal
  * logging facilities are unavailable (i.e., system freezes or reboots
@@ -153,6 +169,8 @@ static __inline void outB(const unsigned short port, unsigned char value){
 }
 
 #endif // _WIN32
+
+#ifndef NDEBUG
 
 #define SERIAL_BASE 0x3f8
 static inline void serial_outchar(char c) {
@@ -230,6 +248,8 @@ static inline void serial_print_stack(int items) {
     serial_out_string(s); \
     serial_outlong(l);
 
+
+#endif //NDEBUG
 
 #endif /* _LOG_H_ */
 

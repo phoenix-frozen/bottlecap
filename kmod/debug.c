@@ -47,6 +47,7 @@
 
 #endif // _WIN32
 
+#ifndef NDEBUG
 void dump_bytes(unsigned char *bytes, int len) {
   static char buf[DUMP_BUF_SIZE];
   int i=0, j=0;
@@ -59,6 +60,7 @@ void dump_bytes(unsigned char *bytes, int len) {
   }
   logit("%s", buf);
 }
+#endif //NDEBUG
 
 /**
  * Dump MLE page tables to debug output.

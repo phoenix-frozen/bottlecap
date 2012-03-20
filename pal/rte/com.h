@@ -301,8 +301,13 @@ struct SERIAL_PORT_T {
 
 typedef struct SERIAL_PORT_T serial_port_t;
 
+#ifdef PERFCRIT
+#define comc_init()
+#define comc_puts(s, l)
+#else //PERFCRIT
 extern void comc_init(void);
 extern void comc_puts(const char*, unsigned int);
+#endif //PERFCRIT
 
 #endif /* __COM_H__ */
 

@@ -216,7 +216,9 @@ static inline void cpu_relax(void)
 #endif // _WIN32
 }
 
+#ifndef PERFCRIT
 extern void print_hex(const char *prefix, const void *prtptr, size_t size);
+#endif //PERFCRIT
 int     vscnprintf(char *buf, size_t size, const char *fmt, va_list ap);
 
 #endif

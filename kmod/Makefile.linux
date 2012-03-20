@@ -1,5 +1,7 @@
 # Makefile for the Flicker kernel module for Linux
 
+.PHONY: cscope cscope.files default clean
+
 ifneq ($(KERNELRELEASE),)
 # kbuild part of Makefile
 
@@ -11,6 +13,7 @@ ccflags-y += -I$(src)/../common/flicker
 ccflags-y += -I$(src)/linux
 ccflags-y += -I$(src)/intel
 ccflags-y += -I$(src)/amd
+ccflags-y += -DNDEBUG
 
 # no wildcard for .c files available
 flicker-y := latelaunch.o tpm.o debug.o expect.o resume.o
@@ -39,3 +42,12 @@ clean:
 	make -C $(KDIR) M=$(CURDIR) clean
 	$(RM) .*.cmd *.mod.c *.o *.ko -r .tmp* *~
 endif
+
+cscope.files:
+	find `pwd` -iname \*.[chs] >cscope.files
+	find `readlink -f ../common` -iname \*.[chs] >>cscope.files
+
+cscope: cscope.files
+	cscope -q -b -k
+
+
