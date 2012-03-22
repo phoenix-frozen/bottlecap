@@ -2,6 +2,12 @@
 
 # Flicker session invocation script for Linux; copes with both AMD and Intel CPUs
 
+if [ ! -r pal.bin ]
+then
+    echo "No PAL to execute!"
+    exit -1
+fi
+
 if [ ! -r flicker.in ]
 then
     echo "No flicker.in to provide input!"

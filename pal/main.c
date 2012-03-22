@@ -14,8 +14,8 @@
 #include "misc.h"
 
 int main(void) {
-	log_event(LOG_LEVEL_VERBOSE, "Hello from main() (PAL)\n");
-	log_event(LOG_LEVEL_VERBOSE, "%d bytes available for output\n", pm_avail());
+	log_event(LOG_LEVEL_VERBOSE, "BOTTLECAP: Hello from main() (PAL)\n");
+	log_event(LOG_LEVEL_VERBOSE, "BOTTLECAP: %d bytes available for output\n", pm_avail());
 
 	bottle_t bottle;
 	int temp;
@@ -23,14 +23,14 @@ int main(void) {
 	//reserve output error code
 	int32_t* rv = (int32_t*)pm_reserve(BOTTLE_CALL, sizeof(int32_t));
 	if(rv == NULL) {
-		log_event(LOG_LEVEL_ERROR, "No space for output!\n");
+		log_event(LOG_LEVEL_ERROR, "BOTTLECAP: No space for output!\n");
 		return -ENOMEM;
 	}
 
 	//bring in call number
 	int32_t* call;
 	if((temp = pm_get_addr(BOTTLE_CALL, (char**)&call)) != sizeof(int32_t)) {
-		log_event(LOG_LEVEL_ERROR, "Could not get call number: %d\n", temp);
+		log_event(LOG_LEVEL_ERROR, "BOTTLECAP: Could not get call number: %d\n", temp);
 		*rv = -EINVAL;
 		return *rv;
 	}
@@ -38,12 +38,12 @@ int main(void) {
 	//bring in bottle header
 	bottle_header_t* header_in;
 	if((temp = pm_get_addr(BOTTLE_HEADER, (char**)&header_in)) != sizeof(bottle_header_t)) {
-		log_event(LOG_LEVEL_ERROR, "Could not get header: %d (headers are %d)\n", temp, sizeof(bottle_header_t));
+		log_event(LOG_LEVEL_ERROR, "BOTTLECAP: Could not get header: %d (headers are %d)\n", temp, sizeof(bottle_header_t));
 		*rv = -EINVAL;
 		return *rv;
 	}
 	if(header_in->size > MAX_TABLE_LENGTH) {
-		log_event(LOG_LEVEL_ERROR, "Header specified invalid table size\n");
+		log_event(LOG_LEVEL_ERROR, "BOTTLECAP: Header specified invalid table size\n");
 		*rv = -ENOMEM;
 		return *rv;
 	}
@@ -51,7 +51,7 @@ int main(void) {
 	//allocate header output space and copy
 	bottle.header = (bottle_header_t*)pm_reserve(BOTTLE_HEADER, sizeof(bottle_header_t));
 	if(bottle.header == NULL) {
-		log_event(LOG_LEVEL_ERROR, "Could not allocate header\n");
+		log_event(LOG_LEVEL_ERROR, "BOTTLECAP: Could not allocate header\n");
 		*rv = -ENOMEM;
 		return *rv;
 	}
@@ -62,7 +62,7 @@ int main(void) {
 	//allocate table output space
 	bottle.table = (cap_t*)pm_reserve(BOTTLE_TABLE, sizeof(cap_t) * bottle.header->size);
 	if(bottle.table == NULL) {
-		log_event(LOG_LEVEL_ERROR, "Could not allocate table\n");
+		log_event(LOG_LEVEL_ERROR, "BOTTLECAP: Could not allocate table\n");
 		*rv = -ENOMEM;
 		goto main_zero_header;
 	}
@@ -75,7 +75,7 @@ int main(void) {
 	} else {
 		cap_t* table_in;
 		if(pm_get_addr(BOTTLE_TABLE, (char**)&table_in) != bottle.header->size * sizeof(cap_t)) {
-			log_event(LOG_LEVEL_ERROR, "Could not get table\n");
+			log_event(LOG_LEVEL_ERROR, "BOTTLECAP: Could not get table\n");
 			*rv = -EINVAL;
 			goto main_zero_table;
 		}
@@ -86,7 +86,7 @@ int main(void) {
 
 	//XXX: TPM keys have now been loaded. from here on in, exits must go to main_unload_tpm_keys
 
-	log_event(LOG_LEVEL_VERBOSE, "Dispatching call %d...\n", *call);
+	log_event(LOG_LEVEL_VERBOSE, "BOTTLECAP: Dispatching call %d...\n", *call);
 
 	//main dispatch table
 	switch (*call) {
@@ -125,7 +125,7 @@ int main(void) {
 			break;
 	}
 
-	log_event(LOG_LEVEL_VERBOSE, "Dispatch complete. Return value %d\n", *rv);
+	log_event(LOG_LEVEL_VERBOSE, "BOTTLECAP: Dispatch complete. Return value %d\n", *rv);
 
 	//if our call wasn't successful, zero the output buffers
 	if(*rv != ESUCCESS) {
@@ -135,7 +135,7 @@ main_zero_header:
 		memset(bottle.header, 0, sizeof(bottle_header_t));
 	}
 
-	log_event(LOG_LEVEL_VERBOSE, "Returning to reality.\n");
+	log_event(LOG_LEVEL_VERBOSE, "BOTTLECAP: Returning to reality.\n");
 
 	return *rv;
 }
@@ -264,14 +264,16 @@ int main(void) {
 		.cap = plaincap,
 	};
 	//TODO: NDEBUG bug!
-	assert(generate_aes_key(&(cryptcap.key.aeskey)) == 0);
+	aeskey_t key;
+	assert(generate_aes_key(&key) == 0);
+	memcpy(cryptcap.key.sealed_data, key.bytes, sizeof(key));
 	assert(generate_aes_key(&(cryptcap.iv)) == 0);
 
 	//...and encrypt it
 	iv = cryptcap.iv;
 	iv_off = 0;
 	//TODO: NDEBUG bug!
-	assert(aes_setkey_enc(&ctx, cryptcap.key.aeskey.bytes, BOTTLE_KEY_SIZE) == 0);
+	assert(aes_setkey_enc(&ctx, key.bytes, BOTTLE_KEY_SIZE) == 0);
 	assert(do_cap_crypto(&ctx, AES_ENCRYPT, &iv_off, &iv, &(cryptcap.cap)) == 0);
 
 	/* Test suite 2:

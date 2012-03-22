@@ -18,9 +18,8 @@ typedef uint8_t sha1hash_t[20];
 //an AES key that is bound/sealed to a TPM state, encrypted with a key
 // from a tpm_rsakey_t
 typedef struct {
-	//TODO: placeholder data structure until I learn a bit more about TPMs
-
-	aeskey_t aeskey;
+	uint32_t sealed_data_size;
+	unsigned char sealed_data[384];
 } tpm_aeskey_t;
 
 //a 'symmetric signature' -- that is, a SHA1 hash that's been AES-encrypted

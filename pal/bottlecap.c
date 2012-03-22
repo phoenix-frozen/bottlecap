@@ -14,10 +14,13 @@
 #include "misc.h"
 #include "tpm_crypto.h"
 
+#include <stdio.h>
 #ifdef BOTTLE_CAP_TEST
 #include <stdio.h>
 #include <stdlib.h>
 #endif //BOTTLE_CAP_TEST
+
+#define TPM_LOCALITY 2
 
 //generate a 128-bit AES key
 static int generate_aes_key(aeskey_t* key) {
@@ -31,7 +34,7 @@ static int generate_aes_key(aeskey_t* key) {
 #else  //BOTTLE_CAP_TEST
 	//ask the TPM for a random number
 	uint32_t size = sizeof(aeskey_t);
-	DO_OR_BAIL(ECRYPTFAIL, NOTHING, tpm_get_random, 2, key->bytes, &size);
+	DO_OR_BAIL(ECRYPTFAIL, NOTHING, tpm_get_random, TPM_LOCALITY, key->bytes, &size);
 	if(size != sizeof(aeskey_t))
 		return -ECRYPTFAIL;
 #endif //BOTTLE_CAP_TEST
@@ -63,6 +66,12 @@ static int check_bottle(bottle_t* bottle) {
 		return -EINVAL;
 	if(bottle->header->magic_bottom != BOTTLE_MAGIC_BOTTOM)
 		return -EINVAL;
+
+#ifndef BOTTLE_CAP_TEST
+	//sealed blob size
+	if(bottle->header->bek.sealed_data_size > sizeof(bottle->header->bek.sealed_data))
+		return -EINVAL;
+#endif //BOTTLE_CAP_TEST
 
 	//correct table dimensions
 	if(bottle->header->size > MAX_TABLE_LENGTH)
@@ -140,17 +149,97 @@ static void bottle_annihilate(bottle_t* bottle) {
 	ANNIHILATE(bottle->bek.bytes, sizeof(bottle->bek));
 }
 
-//TPM data-sealing utility functions
+//key-sealing utility functions
+/* TODO: BUG! there's currently a security vulnerability in the way we
+ *            use the TPM -- we need to get the state proof from the
+ *            TPM_UNSEAL operation to verify that the key was indeed
+ *            created by a previous invocation of BottleCap; otherwise,
+ *            a bottle is trivial to forge (and thus expose all its
+ *            secrets)
+ */
+#ifdef BOTTLE_CAP_TEST
 static int seal_key(tpm_aeskey_t* keyblob, aeskey_t* key) {
-	//TODO: WRITEME
-	keyblob->aeskey = *key;
+	assert(keyblob != NULL);
+	assert(key != NULL);
+
+	memcpy(keyblob->sealed_data, key->bytes, sizeof(*key));
 	return 0;
 }
 static int unseal_key(tpm_aeskey_t* keyblob, aeskey_t* key) {
-	//TODO: WRITEME
-	*key = keyblob->aeskey;
+	assert(keyblob != NULL);
+	assert(key != NULL);
+
+	memcpy(key->bytes, keyblob->sealed_data, sizeof(*key));
 	return 0;
 }
+#else //BOTTLE_CAP_TEST
+static int seal_key(tpm_aeskey_t* keyblob, aeskey_t* key) {
+	assert(keyblob != NULL);
+	assert(key != NULL);
+
+	//construct PCR value array
+	tpm_pcr_value_t pcr_values[3];
+
+	//this is what the tpm_* functions ask for. gofigure
+	tpm_pcr_value_t* pcrs[3] = {
+		&(pcr_values[0]),
+		&(pcr_values[1]),
+		&(pcr_values[2]),
+	};
+
+	//read the current PCR values
+	for(int i = 0; i < 3; i++)
+		DO_OR_BAIL(ECRYPTFAIL, NOTHING, tpm_pcr_read, TPM_LOCALITY, 17 + i, pcrs[i]);
+
+	//allocate remaining metadata
+	uint8_t pcr_indcs[3] = {17, 18, 19};
+	uint32_t sealed_data_size = sizeof(keyblob->sealed_data);
+
+	//seal the key blob
+	DO_OR_BAIL(ECRYPTFAIL, NOTHING, tpm_seal, TPM_LOCALITY,
+	//int testval = tpm_seal(TPM_LOCALITY,
+			TPM_LOC_ZERO | TPM_LOC_ONE | TPM_LOC_TWO | TPM_LOC_THREE | TPM_LOC_FOUR,
+			3, pcr_indcs,
+			3, pcr_indcs,
+			(const tpm_pcr_value_t**)pcrs, //fuck you Intel
+			sizeof(*key),
+			key->bytes,
+			&sealed_data_size,
+			keyblob->sealed_data
+	);
+	//printf("tpm_seal(%d, 0x%x, %d, %p, %d, %p, %p, %d, %p, %d->%d, %p): %d\n",
+	//		TPM_LOCALITY,
+	//		TPM_LOC_ZERO | TPM_LOC_ONE | TPM_LOC_TWO | TPM_LOC_THREE | TPM_LOC_FOUR,
+	//		3, pcr_indcs,
+	//		3, pcr_indcs,
+	//		pcrs,
+	//		sizeof(*key),
+	//		key->bytes,
+	//		sizeof(keyblob->sealed_data),
+	//		sealed_data_size,
+	//		keyblob->sealed_data,
+	//		testval
+	//);
+
+	keyblob->sealed_data_size = sealed_data_size;
+	return 0;
+}
+static int unseal_key(tpm_aeskey_t* keyblob, aeskey_t* key) {
+	assert(keyblob != NULL);
+	assert(key != NULL);
+
+	uint32_t secret_size = sizeof(*key);
+
+	DO_OR_BAIL(ECRYPTFAIL, ANNIHILATE(key, sizeof(*key)), tpm_unseal, TPM_LOCALITY, keyblob->sealed_data_size, keyblob->sealed_data, &secret_size, key->bytes);
+
+	if(secret_size != sizeof(*key)) {
+		ANNIHILATE(key, sizeof(*key));
+		return -ECRYPTFAIL;
+	}
+
+	return ESUCCESS;
+}
+#endif //BOTTLE_CAP_TEST
 
 //decrypt the captable in-place
 //assumes that the BEK is already decrypted
@@ -384,7 +473,8 @@ int bottle_cap_add(bottle_t* bottle, tpm_encrypted_cap_t* cryptcap, uint32_t* sl
 	//pull relevant data onto our stack
 	//TODO: for the moment, we just assume a tpm_encrypted_cap_t contains
 	//      its key in plaintext. and copy everything out to our stack
-	aeskey_t aeskey = cryptcap->key.aeskey;
+	aeskey_t aeskey;
+	DO_OR_BAIL(ECRYPTFAIL, NOTHING, unseal_key, &(cryptcap->key), &aeskey);
 	uint128_t iv = cryptcap->iv;
 	cap_t cap = cryptcap->cap;
 

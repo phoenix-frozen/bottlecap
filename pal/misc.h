@@ -18,6 +18,5 @@ do {                                \
 
 #define NOTHING (void)0
 
-
 #endif /* __MISC_H__ */
 
