@@ -11,7 +11,7 @@ int do_cap_crypto(
 
 	cap_t temp = *cap;
 
-	DO_OR_BAIL(0, aes_crypt_cfb128, ctx, mode, sizeof(cap_t), iv_off, iv->bytes, temp.bytes, cap->bytes);
+	DO_OR_BAIL(0, NOTHING, aes_crypt_cfb128, ctx, mode, sizeof(cap_t), iv_off, iv->bytes, temp.bytes, cap->bytes);
 
 	memset(&temp, 0, sizeof(temp));
 

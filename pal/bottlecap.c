@@ -31,7 +31,7 @@ static int generate_aes_key(aeskey_t* key) {
 #else  //BOTTLE_CAP_TEST
 	//ask the TPM for a random number
 	uint32_t size = sizeof(aeskey_t);
-	DO_OR_BAIL(ECRYPTFAIL, tpm_get_random, 2, key->bytes, &size);
+	DO_OR_BAIL(ECRYPTFAIL, NOTHING, tpm_get_random, 2, key->bytes, &size);
 	if(size != sizeof(aeskey_t))
 		return -ECRYPTFAIL;
 #endif //BOTTLE_CAP_TEST
@@ -49,17 +49,34 @@ static int generate_aes_key(aeskey_t* key) {
 
 //check the bottle is valid, usable on this machine, signed, etc
 static int check_bottle(bottle_t* bottle) {
+	//bottle == NULL is a programming error
+	assert(bottle != NULL);
+
+	//initial sanity checks
+	if(bottle->header == NULL)
+		return -ENOMEM;
+	if(bottle->table == NULL)
+		return -ENOMEM;
+
+	//correct header magic
+	if(bottle->header->magic_top != BOTTLE_MAGIC_TOP)
+		return -EINVAL;
+	if(bottle->header->magic_bottom != BOTTLE_MAGIC_BOTTOM)
+		return -EINVAL;
+
+	//correct table dimensions
+	if(bottle->header->size > MAX_TABLE_LENGTH)
+		return -ENOMEM;
+
+	return ESUCCESS;
+}
+
+//check the bottle is valid, usable on this machine, signed, etc
+static int verify_bottle(bottle_t* bottle) {
 	sha1hash_t sha1data, temp;
 
 	//bottle == NULL is a programming error
 	assert(bottle != NULL);
-
-	//presence of header
-	if(bottle->header == NULL)
-		return -ENOMEM;
-	//presence of table
-	if(bottle->table == NULL)
-		return -ENOMEM;
 
 	//correct header magic
 	if(bottle->header->magic_top != BOTTLE_MAGIC_TOP)
@@ -75,14 +92,14 @@ static int check_bottle(bottle_t* bottle) {
 
 	//table signature
 	sha1_buffer((unsigned char*)(bottle->table), bottle->header->size * sizeof(cap_t), sha1data);
-	DO_OR_BAIL(ESIGFAIL, memcmp, bottle->header->captable_signature.hash, sha1data, sizeof(sha1hash_t));
+	DO_OR_BAIL(ESIGFAIL, NOTHING, memcmp, bottle->header->captable_signature.hash, sha1data, sizeof(sha1hash_t));
 
 	//header signature
 	memcpy(temp, bottle->header->header_signature.hash, sizeof(sha1hash_t)); //copy out header sig...
 	memset(bottle->header->header_signature.hash, 0, sizeof(sha1hash_t)); //... and zero out that field...
 	sha1_buffer((unsigned char*)bottle->header, sizeof(bottle_header_t), sha1data); //... for hashing.
 	memcpy(bottle->header->header_signature.hash, temp, sizeof(sha1hash_t)); //then copy it back in,
-	DO_OR_BAIL(ESIGFAIL, memcmp, temp, sha1data, sizeof(sha1hash_t)); //and do the actual comparison
+	DO_OR_BAIL(ESIGFAIL, NOTHING, memcmp, temp, sha1data, sizeof(sha1hash_t)); //and do the actual comparison
 
 	return ESUCCESS;
 }
@@ -110,9 +127,8 @@ static int check_caps(bottle_t* bottle) {
 	assert(bottle->header->size <= MAX_TABLE_LENGTH);
 
 	//correct cap magic
-	for(int i = 0; i < bottle->header->size; i++) {
-		DO_OR_BAIL(0, check_cap, bottle->table + i);
-	}
+	for(int i = 0; i < bottle->header->size; i++)
+		DO_OR_BAIL(0, NOTHING, check_cap, bottle->table + i);
 
 	return ESUCCESS;
 }
@@ -123,8 +139,20 @@ static void bottle_annihilate(bottle_t* bottle) {
 	memset(bottle->header, 0, sizeof(*(bottle->header)));
 }
 
+//TPM data-sealing utility functions
+static int seal_key(tpm_aeskey_t* keyblob, aeskey_t* key) {
+	//TODO: WRITEME
+	keyblob->aeskey = *key;
+	return 0;
+}
+static int unseal_key(tpm_aeskey_t* keyblob, aeskey_t* key) {
+	//TODO: WRITEME
+	*key = keyblob->aeskey;
+	return 0;
+}
+
 //decrypt the captable in-place
-//assumption: if we return an error code, no encrypted data is exposed
+//assumes that the BEK is already decrypted
 static int decrypt_bottle(bottle_t* bottle) {
 	//bottle == NULL is a programming error
 	assert(bottle != NULL);
@@ -134,28 +162,23 @@ static int decrypt_bottle(bottle_t* bottle) {
 	assert(bottle->table  != NULL);
 	assert(bottle->header->size <= MAX_TABLE_LENGTH);
 
-	//TODO: TPM stuff
-	aeskey_t biv = bottle->header->biv;
-	aeskey_t bek = bottle->header->bek;
+	//acquire AES stuff -- IV is in plaintext in the header, BEK is sealed to the TPM
+	uint128_t biv = bottle->header->biv;
 
 	aes_context ctx;
 	size_t iv_off = 0;
 
 	//Note: we're using the CFB128 mode, which means we use _enc even in decrypt mode
-	DO_OR_BAIL(ECRYPTFAIL, aes_setkey_enc, &ctx, bek.bytes, BOTTLE_KEY_SIZE);
+	DO_OR_BAIL(ECRYPTFAIL, NOTHING, aes_setkey_enc, &ctx, bottle->bek.bytes, BOTTLE_KEY_SIZE);
 
-	for(uint32_t i = 0; i < bottle->header->size; i++) {
-		if(do_cap_crypto(&ctx, AES_DECRYPT, &iv_off, &biv, bottle->table + i) != ESUCCESS) {
-			bottle_annihilate(bottle); //fulfilling the no-leakage assumption
-			return -ECRYPTFAIL;
-		}
-	}
+	for(uint32_t i = 0; i < bottle->header->size; i++)
+		DO_OR_BAIL(ECRYPTFAIL, NOTHING, do_cap_crypto, &ctx, AES_DECRYPT, &iv_off, &biv, bottle->table + i);
 
 	return ESUCCESS;
 }
 
 //encrypt the captable in-place
-//TODO: should read-only operations still generate a new IV?
+//assumes the BEK was extracted during decrypt_bottle
 static int encrypt_bottle(bottle_t* bottle, int regen) {
 	//bottle == NULL is a programming error
 	assert(bottle != NULL);
@@ -165,9 +188,8 @@ static int encrypt_bottle(bottle_t* bottle, int regen) {
 	assert(bottle->table  != NULL);
 	assert(bottle->header->size <= MAX_TABLE_LENGTH);
 
-	//TODO: TPM stuff
-	aeskey_t bek = bottle->header->bek;
-	aeskey_t biv;
+	//acquire AES stuff -- IV is either in plaintext in the header or from an RNG, BEK should be decrypted in the holding area
+	uint128_t biv;
 	if(regen) {
 		generate_aes_key(&biv);
 		bottle->header->biv = biv;
@@ -178,11 +200,10 @@ static int encrypt_bottle(bottle_t* bottle, int regen) {
 	size_t iv_off = 0;
 
 	//Note: we're using the CFB128 mode
-	DO_OR_BAIL(ECRYPTFAIL, aes_setkey_enc, &ctx, bek.bytes, BOTTLE_KEY_SIZE);
+	DO_OR_BAIL(ECRYPTFAIL, NOTHING, aes_setkey_enc, &ctx, bottle->bek.bytes, BOTTLE_KEY_SIZE);
 
 	for(uint32_t i = 0; i < bottle->header->size; i++)
-		if(do_cap_crypto(&ctx, AES_ENCRYPT, &iv_off, &biv, bottle->table + i) != ESUCCESS)
-			return -ECRYPTFAIL;
+		DO_OR_BAIL(ECRYPTFAIL, NOTHING, do_cap_crypto, &ctx, AES_ENCRYPT, &iv_off, &biv, bottle->table + i);
 
 	return ESUCCESS;
 }
@@ -206,19 +227,22 @@ static int sign_bottle(bottle_t* bottle) {
 
 //standard prologue for bottle operations: verify signatures and decrypt
 static int bottle_op_prologue(bottle_t* bottle) {
-	//check the bottle is valid, usable on this machine, signed, etc
-	DO_OR_BAIL(0, check_bottle, bottle);
+	assert(bottle != NULL);
+
+	//check the bottle header fields are sane
+	DO_OR_BAIL(0, NOTHING, check_bottle, bottle);
+
+	//unseal BEK
+	DO_OR_BAIL(ECRYPTFAIL, NOTHING, unseal_key, &(bottle->header->bek), &(bottle->bek));
+
+	//check the bottle hashes and signatures
+	DO_OR_BAIL(0, ANNIHILATE(bottle->bek.bytes, sizeof(aeskey_t)), verify_bottle, bottle);
 
 	//decrypt the captable
-	DO_OR_BAIL(0, decrypt_bottle, bottle);
+	DO_OR_BAIL(0, ANNIHILATE(bottle->bek.bytes, sizeof(aeskey_t)), decrypt_bottle, bottle);
 
 	//check that the decrypted captable makes sense
-	int rv = check_caps(bottle);
-	if(rv != ESUCCESS) {
-		//kill the decrypted data, even if it's garbage
-		bottle_annihilate(bottle);
-		return rv;
-	}
+	DO_OR_BAIL(0, ANNIHILATE(bottle->bek.bytes, sizeof(aeskey_t)), check_caps, bottle);
 
 	return ESUCCESS;
 }
@@ -227,28 +251,26 @@ static int bottle_op_prologue(bottle_t* bottle) {
  * signatures; should only be false on a read-only operation
  */
 static int bottle_op_epilogue(bottle_t* bottle, int regen) {
-	int rv;
+	assert(bottle != NULL);
 
 	//check that the captable makes sense
-	DO_OR_BAIL(0, check_caps, bottle);
+	DO_OR_BAIL(0, NOTHING, check_caps, bottle);
+
+	int rv = ESUCCESS;
 
 	//encrypt the captable
 	rv = encrypt_bottle(bottle, regen);
-	if(rv != ESUCCESS) {
-		//if we can't resecure the bottle, kill it
-		bottle_annihilate(bottle);
-		return rv;
-	}
 
 	//generate signatures
-	if(regen) {
+	if(regen && rv == ESUCCESS)
 		rv = sign_bottle(bottle);
-		if(rv != ESUCCESS) {
-			//if we can't resecure the bottle, kill it
-			bottle_annihilate(bottle);
-			return rv;
-		}
-	}
+
+	//if an error occurred, annihilate sensitive data
+	if(rv != ESUCCESS)
+		bottle_annihilate(bottle);
+
+	//clear unencrypted BEK
+	memset(bottle->bek.bytes, 0, sizeof(bottle->bek));
 
 	return ESUCCESS;
 }
@@ -276,25 +298,22 @@ int bottle_init(bottle_t* bottle) {
 	bottle->header->flags = flags;
 
 	//generate the BEK
-	DO_OR_BAIL(0, generate_aes_key, &(bottle->header->bek));
+	DO_OR_BAIL(0, NOTHING, generate_aes_key, &(bottle->bek));
+	DO_OR_BAIL(ECRYPTFAIL, NOTHING, seal_key, &(bottle->header->bek), &(bottle->bek));
 
 	//insert magic numbers
 	bottle->header->magic_top = BOTTLE_MAGIC_TOP;
 	bottle->header->magic_bottom = BOTTLE_MAGIC_BOTTOM;
 
 	//format the table
+	memset(bottle->table, 0, size * sizeof(cap_t));
 	for(int i = 0; i < size; i++) {
 		bottle->table[i].magic_top    = CAP_MAGIC_TOP;
-		memset(&(bottle->table[i].issuer.bytes), 0, sizeof(aeskey_t));
-		bottle->table[i].oid          = 0;
-		bottle->table[i].expiry       = 0;
-		bottle->table[i].urights      = 0;
-		bottle->table[i].srights      = 0;
 		bottle->table[i].magic_bottom = CAP_MAGIC_BOTTOM;
 	}
 
 	//encrypt and sign
-	DO_OR_BAIL(0, bottle_op_epilogue, bottle, 1);
+	DO_OR_BAIL(0, NOTHING, bottle_op_epilogue, bottle, 1);
 
 	return ESUCCESS;
 }
@@ -310,7 +329,7 @@ int bottle_query_free_slots(bottle_t* bottle, uint32_t* slots) {
 	if(slots == NULL)
 		return -EINVAL;
 
-	DO_OR_BAIL(0, bottle_op_prologue, bottle);
+	DO_OR_BAIL(0, NOTHING, bottle_op_prologue, bottle);
 
 	uint32_t free_slots = 0;
 	for(uint32_t i = 0; i < bottle->header->size; i++) {
@@ -324,7 +343,7 @@ int bottle_query_free_slots(bottle_t* bottle, uint32_t* slots) {
 
 	*slots = free_slots;
 
-	DO_OR_BAIL(0, bottle_op_epilogue, bottle, 0);
+	DO_OR_BAIL(0, NOTHING, bottle_op_epilogue, bottle, 0);
 
 	return ESUCCESS;
 }
@@ -332,7 +351,7 @@ int bottle_expire(bottle_t* bottle, uint64_t time, uint32_t* slots) {
 	if(slots == NULL)
 		return -EINVAL;
 
-	DO_OR_BAIL(0, bottle_op_prologue, bottle);
+	DO_OR_BAIL(0, NOTHING, bottle_op_prologue, bottle);
 
 	uint32_t free_slots = 0;
 	for(uint32_t i = 0; i < bottle->header->size; i++) {
@@ -352,18 +371,20 @@ int bottle_expire(bottle_t* bottle, uint64_t time, uint32_t* slots) {
 
 	*slots = free_slots;
 
-	DO_OR_BAIL(0, bottle_op_epilogue, bottle, 1);
+	DO_OR_BAIL(0, NOTHING, bottle_op_epilogue, bottle, 1);
 
 	return ESUCCESS;
 }
 
 //INTER-MACHINE BOTTLE MIGRATION FUNCTIONS
+#if 0
 int bottle_export(bottle_t* bottle, tpm_rsakey_t* rsrk, tpm_rsakey_t* brk) {
 	return -ENOSYS;
 }
 int bottle_import(bottle_t* bottle, tpm_rsakey_t* brk) {
 	return -ENOSYS;
 }
+#endif
 
 //CAP INSERTION/DELETION FUNCTIONS
 int bottle_cap_add(bottle_t* bottle, tpm_encrypted_cap_t* cryptcap, uint32_t* slot) {
@@ -382,20 +403,20 @@ int bottle_cap_add(bottle_t* bottle, tpm_encrypted_cap_t* cryptcap, uint32_t* sl
 	aes_context ctx;
 	size_t iv_off = 0;
 	//Note: we're using the CFB128 mode, so we use _enc even to decrypt
-	DO_OR_BAIL(ECRYPTFAIL, aes_setkey_enc, &ctx, aeskey.bytes, BOTTLE_KEY_SIZE);
+	DO_OR_BAIL(ECRYPTFAIL, NOTHING, aes_setkey_enc, &ctx, aeskey.bytes, BOTTLE_KEY_SIZE);
 
 	//decrypt the cap
-	DO_OR_BAIL(ECRYPTFAIL, do_cap_crypto, &ctx, AES_DECRYPT, &iv_off, &iv, &cap);
+	DO_OR_BAIL(ECRYPTFAIL, NOTHING, do_cap_crypto, &ctx, AES_DECRYPT, &iv_off, &iv, &cap);
 
 	//check the cap is valid
-	DO_OR_BAIL(0, check_cap, &cap);
+	DO_OR_BAIL(0, ANNIHILATE(&cap, sizeof(cap_t)), check_cap, &cap);
 
 	//0 expiry date not allowed
 	if(cap.expiry == 0)
 		return -EINVAL;
 
 	//now that we've successfully decrypted the cap, decrypt the bottle
-	DO_OR_BAIL(0, bottle_op_prologue, bottle);
+	DO_OR_BAIL(0, ANNIHILATE(&cap, sizeof(cap_t)), bottle_op_prologue, bottle);
 
 	//find a free slot
 	uint32_t i;
@@ -408,13 +429,14 @@ int bottle_cap_add(bottle_t* bottle, tpm_encrypted_cap_t* cryptcap, uint32_t* sl
 	if(i < bottle->header->size) {
 		//... fill it with the cap...
 		*(bottle->table + i) = cap;
-		//... tell the caller where it is...
+		//... and tell the caller where it is
 		*slot = i;
-		//... and destroy the cap
-		memset(&cap, 0, sizeof(cap));
 	}
 
-	DO_OR_BAIL(0, bottle_op_epilogue, bottle, 1);
+	//we're done; destroy the unencrypted cap
+	ANNIHILATE(&cap, sizeof(cap));
+
+	DO_OR_BAIL(0, NOTHING, bottle_op_epilogue, bottle, 1);
 
 	return (i < bottle->header->size) ? ESUCCESS : -ENOMEM;
 }
@@ -424,31 +446,33 @@ int bottle_cap_delete(bottle_t* bottle, uint32_t slot) {
 
 	int resign = 0;
 
-	DO_OR_BAIL(0, bottle_op_prologue, bottle);
+	DO_OR_BAIL(0, NOTHING, bottle_op_prologue, bottle);
 
 	if(bottle->table[slot].expiry != 0) {
-		memset(bottle->table + slot, 0, sizeof(cap_t));
+		ANNIHILATE(bottle->table + slot, sizeof(cap_t));
 		bottle->table[slot].magic_top = CAP_MAGIC_TOP;
 		bottle->table[slot].magic_bottom = CAP_MAGIC_BOTTOM;
 		resign = 1;
 	}
 
-	DO_OR_BAIL(0, bottle_op_epilogue, bottle, resign);
+	DO_OR_BAIL(0, NOTHING, bottle_op_epilogue, bottle, resign);
 
 	return ESUCCESS;
 }
 
 //INTER-BOTTLE CAP MIGRATION
+#if 0
 int bottle_cap_export(bottle_t* bottle, uint32_t slot, tpm_rsakey_t* rbrk, int32_t move, tpm_encrypted_cap_t* cap) {
 	return -ENOSYS;
 }
+#endif
 
 //CAP INVOCATION FUNCTIONS
 int bottle_cap_attest(bottle_t* bottle, uint32_t slot, uint128_t nonce, uint64_t expiry, uint32_t urightsmask, cap_attestation_block_t* output) {
 	if(output == NULL)
 		return -ENOMEM;
 
-	DO_OR_BAIL(0, bottle_op_prologue, bottle);
+	DO_OR_BAIL(0, NOTHING, bottle_op_prologue, bottle);
 
 	int rv = ESUCCESS;
 
@@ -506,7 +530,8 @@ int bottle_cap_attest(bottle_t* bottle, uint32_t slot, uint128_t nonce, uint64_t
 	assert(output->urights == urightsmask);
 
 attest_exit:
-	DO_OR_BAIL(0, bottle_op_epilogue, bottle, 0);
+	ANNIHILATE(&result, sizeof(result));
+	DO_OR_BAIL(0, NOTHING, bottle_op_epilogue, bottle, 0);
 
 	return rv;
 }

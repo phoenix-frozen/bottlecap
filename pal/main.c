@@ -127,10 +127,6 @@ int main(void) {
 
 	log_event(LOG_LEVEL_VERBOSE, "Dispatch complete. Return value %d\n", *rv);
 
-//main_unload_tpm_keys:
-	//TODO: unload TPM keys here
-
-
 	//if our call wasn't successful, zero the output buffers
 	if(*rv != ESUCCESS) {
 main_zero_table:
@@ -463,6 +459,7 @@ int main(void) {
 	printf("bottle_destroy(%p): %d\n", bottle, rv);
 	assert(rv == -ENOTSUP);
 
+#if 0
 	rv = bottle_export(bottle, NULL, NULL);
 	printf("bottle_export(%p, %p, %p): %d\n", bottle, NULL, NULL, rv);
 	assert(rv == -ENOSYS);
@@ -474,6 +471,7 @@ int main(void) {
 	rv = bottle_cap_export(bottle, 0, NULL, 0, NULL);
 	printf("bottle_cap_export(%p, %u, %p, %d, %p): %d\n", bottle, 0, NULL, 0, NULL, rv);
 	assert(rv == -ENOSYS);
+#endif
 
 	END_TEST_SUITE();
 

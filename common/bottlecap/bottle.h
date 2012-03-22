@@ -15,30 +15,25 @@
 typedef struct {
 	uint32_t magic_top; //0x80771ECA
 
-	//rsa cryptographic stuff; always 2048-bit RSA keys for TPM compatibility
-	tpm_rsakey_t brk; //{Bottle Root Key}_SEK (sealed)
-	tpm_rsakey_t bsk; //{Bottle Signing Key}_BRK (bound)
-	//TODO: tpm_rsakey_t brk_public; //to be given to cap issuers to send caps
-	//TODO: tpm_rsakey_t bsk_public; //to be given to cap issuers to check quotes
-
 	//aes cryptographic stuff; always 128-bit AES
-	aeskey_t bek; //{Bottle Encryption Key}_SRK (bound)
-	aeskey_t biv; //{Bottle Initialization Vector}_SRK (bound)
+	uint128_t    biv; //{Bottle Initialization Vector}_SRK (sealed)
+	tpm_aeskey_t bek; //{Bottle Encryption Key}_SRK (sealed)
 
 	//bottle configuration stuff
-	uint32_t     flags; //timed (that is, uses monotonic counters), migratable (off this TPM)
-	uint32_t     size;  //number of slots in the bottle
+	uint32_t flags; //timed (that is, uses monotonic counters), migratable (off this TPM)
+	uint32_t size;  //number of slots in the bottle
 
 	//matching check
-	tpm_signature_t captable_signature; //{SHA1(main table)}_BSK
-	tpm_signature_t header_signature;   //{SHA1(header, assuming this field is zero)}_BSK
+	sym_signature_t captable_signature; //{SHA1(main table)}_BEK
+	sym_signature_t   header_signature; //{SHA1(header [assuming this field is zero])}_BEK
 
 	uint32_t magic_bottom; //0x909ACE17
 } bottle_header_t;
 
 typedef struct {
 	bottle_header_t* header;   //bottle header structure
-	//TODO: aeskey_t         password; //password which will be XOR'd into BEK; is this a good idea?
+	//TODO: aeskey_t         password; //password which will be XOR'd into BEK
+	aeskey_t         bek;      //placeholder for decrypted BEK
 	cap_t*           table;    //{Caps}_BEK
 } bottle_t;
 

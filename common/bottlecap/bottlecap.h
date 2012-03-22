@@ -49,6 +49,7 @@ int32_t bottle_query_free_slots(bottle_t* bottle, uint32_t* slots);
 int32_t bottle_expire(bottle_t* bottle, uint64_t time, uint32_t* slots);
 
 //INTER-MACHINE BOTTLE MIGRATION FUNCTIONS
+//TODO: these are left for later
 /**
  * Binds this bottle's BRK to a new TPM (including PCR values),
  * allowing inter-machine migration.
@@ -59,7 +60,7 @@ int32_t bottle_expire(bottle_t* bottle, uint64_t time, uint32_t* slots);
  * @param brk    Output: {BRK}_rSRK (TPM key blob, bound)
  * @return       Error code.
  */
-int32_t bottle_export(bottle_t* bottle, tpm_rsakey_t* rsrk, tpm_rsakey_t* brk);
+//int32_t bottle_export(bottle_t* bottle, tpm_rsakey_t* rsrk, tpm_rsakey_t* brk);
 /**
  * Imports a bottle onto this machine: takes the bound BRK, and uses it to
  * rewrite the bottle header so it is usable on this machine.
@@ -68,7 +69,7 @@ int32_t bottle_export(bottle_t* bottle, tpm_rsakey_t* rsrk, tpm_rsakey_t* brk);
  * @param brk    {BRK}_SRK for this machine's TPM
  * @return       Error code.
  */
-int32_t bottle_import(bottle_t* bottle, tpm_rsakey_t* brk);
+//int32_t bottle_import(bottle_t* bottle, tpm_rsakey_t* brk);
 
 //CAP INSERTION/DELETION FUNCTIONS
 /**
@@ -91,6 +92,7 @@ int32_t bottle_cap_add(bottle_t* bottle, tpm_encrypted_cap_t* cap, uint32_t* slo
 int32_t bottle_cap_delete(bottle_t* bottle, uint32_t slot);
 
 //INTER-BOTTLE CAP MIGRATION
+//TODO: left for later
 /**
  * Exports a capability for migration to another bottle. (The remote
  * bottle uses bottle_cap_add to import it.)
@@ -104,7 +106,7 @@ int32_t bottle_cap_delete(bottle_t* bottle, uint32_t slot);
  * @param cap    Output: {Exported cap}_rBRK (bound)
  * @return       Error code.
  */
-int32_t bottle_cap_export(bottle_t* bottle, uint32_t slot, tpm_rsakey_t* rbrk, int32_t move, tpm_encrypted_cap_t* cap);
+//int32_t bottle_cap_export(bottle_t* bottle, uint32_t slot, tpm_rsakey_t* rbrk, int32_t move, tpm_encrypted_cap_t* cap);
 
 //CAP INVOCATION FUNCTIONS
 /**
@@ -124,7 +126,7 @@ typedef struct {
 		unsigned char bytes[32];
 	} authdata; //{authority data}_cap.key, using nonce as IV
 
-	tpm_signature_t signature; //signature of the fields above by BSK
+	sym_signature_t signature; //{SHA1(authdata)}_BEK
 
 	uint64_t expiry;  //repeat of the same fields as above, in plaintext, for easy introspection.
 	uint32_t urights; // should not be used by any security-sensitive code (which should be able

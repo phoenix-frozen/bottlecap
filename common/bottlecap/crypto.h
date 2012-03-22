@@ -15,13 +15,6 @@ typedef uint128_t aeskey_t;
 
 typedef uint8_t sha1hash_t[20];
 
-//represents an RSA keypair data blob that can be loaded into the TPM
-typedef struct {
-	//TODO: placeholder data structure until I learn a bit more about TPMs
-
-	uint32_t placeholder;
-} tpm_rsakey_t;
-
 //an AES key that is bound/sealed to a TPM state, encrypted with a key
 // from a tpm_rsakey_t
 typedef struct {
@@ -30,13 +23,14 @@ typedef struct {
 	aeskey_t aeskey;
 } tpm_aeskey_t;
 
-//represents a digital signature of a block of data, using a key from a
-// tpm_rsakey_t
+//a 'symmetric signature' -- that is, a SHA1 hash that's been AES-encrypted
 typedef struct {
-	//TODO: placeholder data structure until I learn a bit more about TPMs
-
-	sha1hash_t hash; //SHA1 hash of signed data
-} tpm_signature_t;
+	uint128_t iv;
+	union {
+		uint128_t  encdata[2]; //padding out to a block size
+		sha1hash_t hash;       //hash of data
+	};
+} sym_signature_t;
 
 #endif /* __CRYPTO_H__ */
 
