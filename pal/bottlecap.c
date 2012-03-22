@@ -135,8 +135,9 @@ static int check_caps(bottle_t* bottle) {
 
 //emergency security-breakage utility function
 static void bottle_annihilate(bottle_t* bottle) {
-	memset(bottle->table, 0, bottle->header->size * sizeof(cap_t));
-	memset(bottle->header, 0, sizeof(*(bottle->header)));
+	ANNIHILATE(bottle->table,  bottle->header->size * sizeof(cap_t));
+	ANNIHILATE(bottle->header, sizeof(*(bottle->header)));
+	ANNIHILATE(bottle->bek.bytes, sizeof(bottle->bek));
 }
 
 //TPM data-sealing utility functions
@@ -256,21 +257,15 @@ static int bottle_op_epilogue(bottle_t* bottle, int regen) {
 	//check that the captable makes sense
 	DO_OR_BAIL(0, NOTHING, check_caps, bottle);
 
-	int rv = ESUCCESS;
-
-	//encrypt the captable
-	rv = encrypt_bottle(bottle, regen);
+	//encrypt the captable, obliterating sensitive data on error
+	DO_OR_BAIL(0, bottle_annihilate(bottle), encrypt_bottle, bottle, regen);
 
 	//generate signatures
-	if(regen && rv == ESUCCESS)
-		rv = sign_bottle(bottle);
-
-	//if an error occurred, annihilate sensitive data
-	if(rv != ESUCCESS)
-		bottle_annihilate(bottle);
+	if(regen)
+		DO_OR_BAIL(0, ANNIHILATE(bottle->bek.bytes, sizeof(bottle->bek)), sign_bottle, bottle);
 
 	//clear unencrypted BEK
-	memset(bottle->bek.bytes, 0, sizeof(bottle->bek));
+	ANNIHILATE(bottle->bek.bytes, sizeof(bottle->bek));
 
 	return ESUCCESS;
 }
@@ -290,16 +285,14 @@ int bottle_init(bottle_t* bottle) {
 	if(flags != 0)
 		return -ENOTSUP;
 
-	//TODO: we may support preservation of the BRK and BSK
-
 	//clear the header, and put back the information we borrowed
-	memset(bottle->header, 0, sizeof(bottle_header_t));
+	memset(bottle->header, 0, sizeof(*(bottle->header)));
 	bottle->header->size  = size;
 	bottle->header->flags = flags;
 
 	//generate the BEK
 	DO_OR_BAIL(0, NOTHING, generate_aes_key, &(bottle->bek));
-	DO_OR_BAIL(ECRYPTFAIL, NOTHING, seal_key, &(bottle->header->bek), &(bottle->bek));
+	DO_OR_BAIL(ECRYPTFAIL, ANNIHILATE(&(bottle->bek), sizeof(bottle->bek)), seal_key, &(bottle->header->bek), &(bottle->bek));
 
 	//insert magic numbers
 	bottle->header->magic_top = BOTTLE_MAGIC_TOP;
@@ -359,8 +352,8 @@ int bottle_expire(bottle_t* bottle, uint64_t time, uint32_t* slots) {
 		assert(bottle->table[i].magic_bottom == CAP_MAGIC_BOTTOM);
 
 		if(bottle->table[i].expiry <= time) {
-			//this cap is to be expired -- obliterate it
-			memset(bottle->table + i, 0, sizeof(cap_t));
+			//this cap is to be expired -- annihilate it
+			ANNIHILATE(bottle->table + i, sizeof(cap_t));
 			bottle->table[i].magic_top = CAP_MAGIC_TOP;
 			bottle->table[i].magic_bottom = CAP_MAGIC_BOTTOM;
 		}
@@ -388,10 +381,6 @@ int bottle_import(bottle_t* bottle, tpm_rsakey_t* brk) {
 
 //CAP INSERTION/DELETION FUNCTIONS
 int bottle_cap_add(bottle_t* bottle, tpm_encrypted_cap_t* cryptcap, uint32_t* slot) {
-	//TODO: before decrypting the whole bottle, we should probably just
-	// load the BRK and check the cap's integrity
-	//TODO: unload TPM keys on error
-
 	//pull relevant data onto our stack
 	//TODO: for the moment, we just assume a tpm_encrypted_cap_t contains
 	//      its key in plaintext. and copy everything out to our stack
@@ -472,6 +461,10 @@ int bottle_cap_attest(bottle_t* bottle, uint32_t slot, uint128_t nonce, uint64_t
 	if(output == NULL)
 		return -ENOMEM;
 
+	/* TODO: for performance reasons, we probably want to rejig the crypto
+	 *       so that we can decrypt just one cap and attest it.
+	 *       ditto for the other single-slot operations.
+	 */
 	DO_OR_BAIL(0, NOTHING, bottle_op_prologue, bottle);
 
 	int rv = ESUCCESS;
