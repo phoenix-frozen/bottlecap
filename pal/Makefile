@@ -23,8 +23,8 @@ CFLAGS += -fno-jump-tables
 CFLAGS += -fno-stack-protector
 all: CFLAGS += -fno-builtin -I$(CURDIR)/rte
 all: CFLAGS += -DNDEBUG -DPERFCRIT
+test: CFLAGS += -DnotPERFCRIT
 
-#CFLAGS += -DnotPERFCRIT
 CFLAGS += -DMIN_LOG_LEVEL=1
 test: CFLAGS += -DBOTTLE_CAP_TEST
 

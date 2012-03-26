@@ -9,8 +9,32 @@
 #define BOTTLE_MAGIC_TOP    0x80771ECA
 #define BOTTLE_MAGIC_BOTTOM 0x909ACE17
 
+#define BOTTLE_MAGIC_SIGNATURE 0x9222824932fc088cULL
+
 #define BOTTLE_FLAG_SINGLETON  0x1 //this bottle uses monotonic counters to ensure non-copying
 #define BOTTLE_FLAG_MIGRATABLE 0x2 //this bottle may be migrated to another TPM
+
+typedef union {
+	struct {
+		uint128_t  iv;
+		sha1hash_t captable_hash; //SHA1({main table}_BEK)
+		sha1hash_t header_hash;   //SHA1(header [assuming this field is zero])
+		uint64_t   magic;         //0x9222824932fc088cULL
+	};
+	struct {
+		uint128_t iv;
+		union {
+			uint128_t blocks[3]; /* Encrypted form of the above two hashes.
+			                      * Looks like:
+			                      * | captable_signature |  header_signature  | magic  |
+			                      * |    data[0]    |    data[1]     |    data[2]      |
+			                      * (1 char = 1 byte, except '|' is an item boundary,
+			                      * and represents no space)
+			                      */
+			unsigned char bytes[48];
+		};
+	} encrypted_signature;
+} bottle_signature_t;
 
 typedef struct {
 	uint32_t magic_top; //0x80771ECA
@@ -23,9 +47,8 @@ typedef struct {
 	uint32_t flags; //timed (that is, uses monotonic counters), migratable (off this TPM)
 	uint32_t size;  //number of slots in the bottle
 
-	//matching check
-	sym_signature_t captable_signature; //{SHA1(main table)}_BEK
-	sym_signature_t   header_signature; //{SHA1(header [assuming this field is zero])}_BEK
+	//matching/integrity check
+	bottle_signature_t signature;
 
 	uint32_t magic_bottom; //0x909ACE17
 } bottle_header_t;

@@ -122,7 +122,7 @@ void get_pcr17(void) {
 }
 
 void gdt_debug(void) {
-    uint32_t base;
+    uint32_t base __attribute__((unused));
     uint8_t * gdt_ptr;
 
     base = slb_base_phys();

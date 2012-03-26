@@ -147,8 +147,7 @@ typedef struct {
 int32_t bottle_cap_attest(bottle_t* bottle, uint32_t slot, uint128_t nonce, uint64_t expiry, uint32_t urightsmask, cap_attestation_block_t* result);
 
 
-//TODO: need some way for a remote party to anchor the BRK to our TPM
-//TODO: need some way for us to trust a remote BRK, for _export and _cap_export
+//TODO: need some way for us to trust a remote SRK, for _export and _cap_export
 
 #endif /* __BOTTLECAP_H__ */
 

@@ -70,9 +70,7 @@ int main(void) {
 	//XXX: table has now been allocated. from here on in, exits must go to main_zero_table
 
 	//check if we're initting; if not, bring in table and copy to output
-	if(*call == BOTTLE_INIT) {
-		//TODO: load and/or generate TPM keys
-	} else {
+	if(*call != BOTTLE_INIT) {
 		cap_t* table_in;
 		if(pm_get_addr(BOTTLE_TABLE, (char**)&table_in) != bottle.header->size * sizeof(cap_t)) {
 			log_event(LOG_LEVEL_ERROR, "BOTTLECAP: Could not get table\n");
@@ -80,11 +78,7 @@ int main(void) {
 			goto main_zero_table;
 		}
 		memcpy(bottle.table, table_in, bottle.header->size * sizeof(cap_t));
-
-		//TODO: load TPM keys
 	}
-
-	//XXX: TPM keys have now been loaded. from here on in, exits must go to main_unload_tpm_keys
 
 	log_event(LOG_LEVEL_VERBOSE, "BOTTLECAP: Dispatching call %d...\n", *call);
 
@@ -192,11 +186,13 @@ int main(void) {
 	uint32_t slots;
 	uint32_t freeslots;
 	uint32_t slot;
+	bottle_t* bottle;
 
 	printf("Hello from main(), test edition.\n\n");
 
 	printf("A bottle_t is %d bytes, or %d bits.\n", sizeof(bottle_t), 8 * sizeof(bottle_t));
 	printf("A bottle_header_t is %d bytes, or %d bits.\n", sizeof(bottle_header_t), 8 * sizeof(bottle_header_t));
+	printf("A bottle_signature_t is %d bytes, of which %d are encrypted.\n", sizeof(bottle_signature_t), sizeof(bottle->header->signature.encrypted_signature.bytes));
 	printf("A cap_t is %d bytes, or %d bits.\n", sizeof(cap_t), 8 * sizeof(cap_t));
 	printf("A bottle may contain at most %d slots.\n\n", PAGE_SIZE / sizeof(cap_t));
 
@@ -206,7 +202,7 @@ int main(void) {
 	size_t iv_off;
 
 	//allocate a new bottle
-	bottle_t* bottle = generate_test_data();
+	bottle = generate_test_data();
 	freeslots = bottle->header->size;
 	printf("bottle: %p\n", bottle);
 

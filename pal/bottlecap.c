@@ -52,63 +52,78 @@ static int generate_aes_key(aeskey_t* key) {
 
 //check the bottle is valid, usable on this machine, signed, etc
 static int check_bottle(bottle_t* bottle) {
+	DPRINTF("enter(%p)\n", bottle);
 	//bottle == NULL is a programming error
 	assert(bottle != NULL);
 
 	//initial sanity checks
+	DPRINTF("data structure checks...\n");
 	if(bottle->header == NULL)
 		return -ENOMEM;
 	if(bottle->table == NULL)
 		return -ENOMEM;
 
 	//correct header magic
+	DPRINTF("top magic check...\n");
 	if(bottle->header->magic_top != BOTTLE_MAGIC_TOP)
 		return -EINVAL;
+	DPRINTF("bottom magic check...\n");
 	if(bottle->header->magic_bottom != BOTTLE_MAGIC_BOTTOM)
 		return -EINVAL;
 
 #ifndef BOTTLE_CAP_TEST
 	//sealed blob size
+	DPRINTF("sealed-size check...\n");
 	if(bottle->header->bek.sealed_data_size > sizeof(bottle->header->bek.sealed_data))
 		return -EINVAL;
 #endif //BOTTLE_CAP_TEST
 
 	//correct table dimensions
+	DPRINTF("bottle size check...\n");
 	if(bottle->header->size > MAX_TABLE_LENGTH)
 		return -ENOMEM;
 
+	DPRINTF("exit\n");
 	return ESUCCESS;
 }
 
 //check the bottle is valid, usable on this machine, signed, etc
+//assumes BEK is available
 static int verify_bottle(bottle_t* bottle) {
-	sha1hash_t sha1data, temp;
+	sha1hash_t sha1data;
+	bottle_signature_t plainsig, temp;
 
 	//bottle == NULL is a programming error
 	assert(bottle != NULL);
 
-	//correct header magic
-	if(bottle->header->magic_top != BOTTLE_MAGIC_TOP)
-		return -EINVAL;
-	if(bottle->header->magic_bottom != BOTTLE_MAGIC_BOTTOM)
-		return -EINVAL;
+	//we can now simply assert that everything that's checked in check_bottle is true
+	assert(bottle->header->magic_top == BOTTLE_MAGIC_TOP);
+	assert(bottle->header->magic_bottom == BOTTLE_MAGIC_BOTTOM);
+	assert(bottle->header->size <= MAX_TABLE_LENGTH);
 
-	//correct table dimensions
-	if(bottle->header->size > MAX_TABLE_LENGTH)
-		return -ENOMEM;
+	//set up some stack space for AES decryption
+	temp = bottle->header->signature; //copy the whole block out of the header
+	plainsig.iv = temp.iv;            //and make a further copy of the IV
+	aes_context ctx;
+	size_t iv_off = 0;
 
-	//TODO real signature checking
+	//init and run AES
+	//Note: we're using the CFB128 mode
+	DO_OR_BAIL(ECRYPTFAIL, NOTHING, aes_setkey_enc, &ctx, bottle->bek.bytes, BOTTLE_KEY_SIZE);
+	DO_OR_BAIL(ECRYPTFAIL, NOTHING, aes_crypt_cfb128, &ctx, AES_DECRYPT, sizeof(plainsig.encrypted_signature.bytes), &iv_off, plainsig.iv.bytes, bottle->header->signature.encrypted_signature.bytes, plainsig.encrypted_signature.bytes);
+
+	if(plainsig.magic != BOTTLE_MAGIC_SIGNATURE)
+		return -ESIGFAIL;
 
 	//table signature
 	sha1_buffer((unsigned char*)(bottle->table), bottle->header->size * sizeof(cap_t), sha1data);
-	DO_OR_BAIL(ESIGFAIL, NOTHING, memcmp, bottle->header->captable_signature.hash, sha1data, sizeof(sha1hash_t));
+	DO_OR_BAIL(ESIGFAIL, NOTHING, memcmp, plainsig.captable_hash, sha1data, sizeof(sha1hash_t));
 
 	//header signature
-	memcpy(temp, bottle->header->header_signature.hash, sizeof(sha1hash_t)); //copy out header sig...
-	memset(bottle->header->header_signature.hash, 0, sizeof(sha1hash_t)); //... and zero out that field...
-	sha1_buffer((unsigned char*)bottle->header, sizeof(bottle_header_t), sha1data); //... for hashing.
-	memcpy(bottle->header->header_signature.hash, temp, sizeof(sha1hash_t)); //then copy it back in,
-	DO_OR_BAIL(ESIGFAIL, NOTHING, memcmp, temp, sha1data, sizeof(sha1hash_t)); //and do the actual comparison
+	memset(&(bottle->header->signature), 0, sizeof(bottle->header->signature));                //zero out the signature field...
+	sha1_buffer((unsigned char*)bottle->header, sizeof(bottle_header_t), sha1data);            //... for hashing.
+	bottle->header->signature = temp;                                                          //then copy it back in,
+	DO_OR_BAIL(ESIGFAIL, NOTHING, memcmp, plainsig.header_hash, sha1data, sizeof(sha1hash_t)); //and do the actual comparison
 
 	return ESUCCESS;
 }
@@ -150,12 +165,12 @@ static void bottle_annihilate(bottle_t* bottle) {
 }
 
 //key-sealing utility functions
-/* TODO: BUG! there's currently a security vulnerability in the way we
- *            use the TPM -- we need to get the state proof from the
- *            TPM_UNSEAL operation to verify that the key was indeed
- *            created by a previous invocation of BottleCap; otherwise,
- *            a bottle is trivial to forge (and thus expose all its
- *            secrets)
+/* TODO: BUG: TPM_UNSEAL drops state proof block!
+ * 
+ * There's currently a security vulnerability in the way we use the TPM. We
+ * need to get the state proof from the TPM_UNSEAL operation to verify that the
+ * key was indeed created by a previous invocation of BottleCap; otherwise, a
+ * bottle is trivial to forge in such a way as to expose all its secrets.
  */
 #ifdef BOTTLE_CAP_TEST
 static int seal_key(tpm_aeskey_t* keyblob, aeskey_t* key) {
@@ -299,18 +314,33 @@ static int encrypt_bottle(bottle_t* bottle, int regen) {
 }
 
 //sign the bottle's current state
+//assumes the BEK is available
 static int sign_bottle(bottle_t* bottle) {
 	assert(bottle != NULL);
 
-	//TODO generate real signatures
-	sha1hash_t sha1data;
-	//table
-	sha1_buffer((unsigned char*)(bottle->table), bottle->header->size * sizeof(cap_t), sha1data);
-	memcpy(bottle->header->captable_signature.hash, sha1data, sizeof(sha1hash_t));
-	//header
-	memset(bottle->header->header_signature.hash, 0, sizeof(sha1hash_t));
-	sha1_buffer((unsigned char*)bottle->header, sizeof(bottle_header_t), sha1data);
-	memcpy(bottle->header->header_signature.hash, sha1data, sizeof(sha1hash_t));
+	//plaintext signature buffer (with magic)
+	bottle_signature_t plainsig = {
+		.magic = BOTTLE_MAGIC_SIGNATURE,
+	};
+
+	//set up some stack space for AES crypto
+	aes_context ctx;
+	size_t iv_off = 0;
+
+	//hash table
+	sha1_buffer((unsigned char*)(bottle->table), bottle->header->size * sizeof(cap_t), plainsig.captable_hash);
+	//hash header
+	memset(&(bottle->header->signature), 0, sizeof(bottle->header->signature));
+	sha1_buffer((unsigned char*)bottle->header, sizeof(bottle_header_t), plainsig.header_hash);
+
+	//generate AES IV
+	generate_aes_key(&(plainsig.iv));
+	bottle->header->signature.iv = plainsig.iv; //and copy into header
+
+	//init and run AES
+	//Note: we're using the CFB128 mode
+	DO_OR_BAIL(ECRYPTFAIL, NOTHING, aes_setkey_enc, &ctx, bottle->bek.bytes, BOTTLE_KEY_SIZE);
+	DO_OR_BAIL(ECRYPTFAIL, NOTHING, aes_crypt_cfb128, &ctx, AES_ENCRYPT, sizeof(plainsig.encrypted_signature.bytes), &iv_off, plainsig.iv.bytes, plainsig.encrypted_signature.bytes, bottle->header->signature.encrypted_signature.bytes);
 
 	return ESUCCESS;
 }
@@ -629,4 +659,8 @@ static void compile_time_asserts(void) {
 
 	cap_t cap;
 	COMPILE_TIME_ASSERT(sizeof(cap.bytes) == sizeof(cap));
+
+	bottle_signature_t signature;
+	COMPILE_TIME_ASSERT(sizeof(signature.encrypted_signature.bytes) == sizeof(signature.encrypted_signature.blocks));
+	COMPILE_TIME_ASSERT(sizeof(signature.encrypted_signature.blocks) == sizeof(signature.captable_hash) + sizeof(signature.header_hash) + sizeof(signature.magic));
 }

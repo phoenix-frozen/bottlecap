@@ -18,5 +18,11 @@ do {                                \
 
 #define NOTHING (void)0
 
+#ifdef NDEBUG
+#define DPRINTF(fmt, args...)
+#else //NDEBUG
+#define DPRINTF(fmt, args...) printf("%s: " fmt, __FUNCTION__, ##args)
+#endif //NDEBUG
+
 #endif /* __MISC_H__ */
 
