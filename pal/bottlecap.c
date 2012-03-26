@@ -501,7 +501,8 @@ int bottle_import(bottle_t* bottle, tpm_rsakey_t* brk) {
 //CAP INSERTION/DELETION FUNCTIONS
 int bottle_cap_add(bottle_t* bottle, tpm_encrypted_cap_t* cryptcap, uint32_t* slot) {
 	//pull relevant data onto our stack
-	//TODO: for the moment, we just assume a tpm_encrypted_cap_t contains
+	//TODO: tpm_encrypted_cap_t contains key in plaintext
+	//      for the moment, we just assume a tpm_encrypted_cap_t contains
 	//      its key in plaintext. and copy everything out to our stack
 	aeskey_t aeskey;
 	DO_OR_BAIL(ECRYPTFAIL, NOTHING, unseal_key, &(cryptcap->key), &aeskey);
@@ -581,9 +582,11 @@ int bottle_cap_attest(bottle_t* bottle, uint32_t slot, uint128_t nonce, uint64_t
 	if(output == NULL)
 		return -ENOMEM;
 
-	/* TODO: for performance reasons, we probably want to rejig the crypto
-	 *       so that we can decrypt just one cap and attest it.
-	 *       ditto for the other single-slot operations.
+	/* TODO: Performance bug: decrypt entire table for single-cap ops.
+	 * 
+	 * For performance reasons, we probably want to rejig the crypto so that we
+	 * can decrypt just one cap and attest it.  Ditto for the other single-slot
+	 * operations.
 	 */
 	DO_OR_BAIL(0, NOTHING, bottle_op_prologue, bottle);
 
