@@ -50,6 +50,8 @@ static int generate_aes_key(aeskey_t* key) {
 	return ESUCCESS;
 }
 
+#define hmac_sha1_buffer(d, dl, k, kl, r) sha1_buffer(d, dl, r)
+
 //check the bottle is valid, usable on this machine, signed, etc
 static int check_bottle(bottle_t* bottle) {
 	DPRINTF("enter(%p)\n", bottle);

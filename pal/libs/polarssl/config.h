@@ -126,8 +126,8 @@
  * \def POLARSSL_CIPHER_MODE_CTR
  *
  * Enable Counter Block Cipher mode (CTR) for symmetric ciphers.
- */
 #define POLARSSL_CIPHER_MODE_CTR
+ */
 
 /**
  * \def POLARSSL_CIPHER_NULL_CIPHER
@@ -167,8 +167,8 @@
  * Requires: POLARSSL_BIGNUM_C, POLARSSL_RSA_C
  *
  * Enable the RSA prime-number generation code.
- */
 #define POLARSSL_GENPRIME
+ */
 
 /**
  * \def POLARSSL_FS_IO
@@ -285,8 +285,8 @@
  *
  * Module:  library/asn1.c
  * Caller:  library/x509parse.c
- */
 #define POLARSSL_ASN1_PARSE_C
+ */
 
 /**
  * \def POLARSSL_ASN1_WRITE_C
@@ -294,8 +294,8 @@
  * Enable the generic ASN1 writer.
  *
  * Module:  library/asn1write.c
- */
 #define POLARSSL_ASN1_WRITE_C
+ */
 
 /**
  * \def POLARSSL_BASE64_C
@@ -321,8 +321,8 @@
  *          library/x509parse.c
  *
  * This module is required for RSA and DHM support.
- */
 #define POLARSSL_BIGNUM_C
+ */
 
 /**
  * \def POLARSSL_CAMELLIA_C
@@ -580,8 +580,8 @@
  * Requires: POLARSSL_BIGNUM_C
  *
  * This module is required for SSL/TLS and MD5-signed certificates.
- */
 #define POLARSSL_RSA_C
+ */
 
 /**
  * \def POLARSSL_SHA1_C

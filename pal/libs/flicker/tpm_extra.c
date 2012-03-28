@@ -234,40 +234,6 @@ uint32_t tpm_nv_write_value(uint32_t locality, tpm_nv_index_t index,
     return ret;
 }
 
-static bool hmac(const uint8_t key[HMAC_OUTPUT_SIZE], const uint8_t *msg,
-                 uint32_t len, uint8_t md[HMAC_OUTPUT_SIZE])
-{
-    uint8_t ipad[HMAC_BLOCK_SIZE], opad[HMAC_BLOCK_SIZE];
-    uint32_t i;
-    SHA1_CTX ctx;
-
-    assert(HMAC_OUTPUT_SIZE <= HMAC_BLOCK_SIZE);
-
-    for ( i = 0; i < HMAC_BLOCK_SIZE; i++ ) {
-        ipad[i] = 0x36;
-        opad[i] = 0x5C;
-    }
-
-    for ( i = 0; i < HMAC_OUTPUT_SIZE; i++ ) {
-        ipad[i] ^= key[i];
-        opad[i] ^= key[i];
-    }
-
-    SHA1_init(&ctx);
-    SHA1_update(&ctx, ipad, HMAC_BLOCK_SIZE);
-    SHA1_update(&ctx, msg, len);
-    SHA1_final(&ctx);
-    SHA1_digest(&ctx, md);
-
-    SHA1_init(&ctx);
-    SHA1_update(&ctx, opad, HMAC_BLOCK_SIZE);
-    SHA1_update(&ctx, md, HMAC_OUTPUT_SIZE);
-    SHA1_final(&ctx);
-    SHA1_digest(&ctx, md);
-
-    return true;
-}
-
 static inline uint32_t tpm_submit_cmd_auth1(uint32_t locality, uint32_t cmd,
                                       uint32_t arg_size, uint32_t *out_size)
 {

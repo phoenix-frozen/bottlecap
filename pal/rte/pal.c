@@ -175,7 +175,6 @@ int pal_main(void)
  */
 void hash_trick(uint8_t* high_region_start, uint32_t high_region_size) __attribute__ ((section (".text.slb")));
 void hash_trick(uint8_t* high_region_start, uint32_t high_region_size) {
-    SHA1_CTX ctx;
     uint8_t high_hash[SHA_DIGEST_LENGTH];
 
     int result;
@@ -185,10 +184,7 @@ void hash_trick(uint8_t* high_region_start, uint32_t high_region_size) {
            high_region_size, (uint32_t)high_region_start);
 
     record_timestamp("hash_trick hash - begin");
-    SHA1_init(&ctx);
-    SHA1_update(&ctx, high_region_start, high_region_size);
-    SHA1_final(&ctx);
-    SHA1_digest(&ctx, high_hash);
+    sha1_buffer(high_region_start, high_region_size, high_hash);
     record_timestamp("hash_trick hash - end");
     dump_bytes(high_hash, SHA_DIGEST_LENGTH);
 
