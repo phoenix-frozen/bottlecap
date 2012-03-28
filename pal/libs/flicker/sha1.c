@@ -403,3 +403,20 @@ int sha1_buffer(const unsigned char *buffer, size_t len,
 
     return 0;
 }
+
+int hmac_sha1_buffer(const unsigned char *buffer, size_t len,
+                     const unsigned char *key,    size_t keylen,
+                     unsigned char md[SHA_DIGEST_LENGTH])
+{
+    SHA1_CTX c;
+
+    if (md == NULL)
+        return 1;
+    SHA1_init(&c);
+    SHA1_update(&c, buffer, len);
+    SHA1_update(&c, key, keylen);
+    SHA1_final(&c);
+    SHA1_digest(&c, md);
+
+    return 0;
+}

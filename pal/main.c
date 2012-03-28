@@ -192,7 +192,6 @@ int main(void) {
 
 	printf("A bottle_t is %d bytes, or %d bits.\n", sizeof(bottle_t), 8 * sizeof(bottle_t));
 	printf("A bottle_header_t is %d bytes, or %d bits.\n", sizeof(bottle_header_t), 8 * sizeof(bottle_header_t));
-	printf("A bottle_signature_t is %d bytes, of which %d are encrypted.\n", sizeof(bottle_signature_t), sizeof(bottle->header->signature.encrypted_signature.bytes));
 	printf("A cap_t is %d bytes, or %d bits.\n", sizeof(cap_t), 8 * sizeof(cap_t));
 	printf("A bottle may contain at most %d slots.\n\n", PAGE_SIZE / sizeof(cap_t));
 

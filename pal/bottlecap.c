@@ -90,8 +90,7 @@ static int check_bottle(bottle_t* bottle) {
 //check the bottle is valid, usable on this machine, signed, etc
 //assumes BEK is available
 static int verify_bottle(bottle_t* bottle) {
-	sha1hash_t sha1data;
-	bottle_signature_t plainsig, temp;
+	sha1hash_t sha1data, temp;
 
 	//bottle == NULL is a programming error
 	assert(bottle != NULL);
@@ -101,29 +100,20 @@ static int verify_bottle(bottle_t* bottle) {
 	assert(bottle->header->magic_bottom == BOTTLE_MAGIC_BOTTOM);
 	assert(bottle->header->size <= MAX_TABLE_LENGTH);
 
-	//set up some stack space for AES decryption
-	temp = bottle->header->signature; //copy the whole block out of the header
-	plainsig.iv = temp.iv;            //and make a further copy of the IV
-	aes_context ctx;
-	size_t iv_off = 0;
-
-	//init and run AES
-	//Note: we're using the CFB128 mode
-	DO_OR_BAIL(ECRYPTFAIL, NOTHING, aes_setkey_enc, &ctx, bottle->bek.bytes, BOTTLE_KEY_SIZE);
-	DO_OR_BAIL(ECRYPTFAIL, NOTHING, aes_crypt_cfb128, &ctx, AES_DECRYPT, sizeof(plainsig.encrypted_signature.bytes), &iv_off, plainsig.iv.bytes, bottle->header->signature.encrypted_signature.bytes, plainsig.encrypted_signature.bytes);
-
-	if(plainsig.magic != BOTTLE_MAGIC_SIGNATURE)
-		return -ESIGFAIL;
-
-	//table signature
-	sha1_buffer((unsigned char*)(bottle->table), bottle->header->size * sizeof(cap_t), sha1data);
-	DO_OR_BAIL(ESIGFAIL, NOTHING, memcmp, plainsig.captable_hash, sha1data, sizeof(sha1hash_t));
+	//table HMAC
+	hmac_sha1_buffer((unsigned char*)(bottle->table), bottle->header->size * sizeof(cap_t),
+	                 bottle->bek.bytes, sizeof(bottle->bek),
+	                 sha1data);
+	DO_OR_BAIL(ESIGFAIL, NOTHING, memcmp, bottle->header->table_hmac, sha1data, sizeof(sha1hash_t));
 
 	//header signature
-	memset(&(bottle->header->signature), 0, sizeof(bottle->header->signature));                //zero out the signature field...
-	sha1_buffer((unsigned char*)bottle->header, sizeof(bottle_header_t), sha1data);            //... for hashing.
-	bottle->header->signature = temp;                                                          //then copy it back in,
-	DO_OR_BAIL(ESIGFAIL, NOTHING, memcmp, plainsig.header_hash, sha1data, sizeof(sha1hash_t)); //and do the actual comparison
+	memcpy(temp, bottle->header->header_hmac, sizeof(temp));                        //copy the header HMAC out...
+	memset(&(bottle->header->header_hmac), 0, sizeof(bottle->header->header_hmac)); //... so we can zero the header field...
+	hmac_sha1_buffer((unsigned char*)bottle->header, sizeof(bottle_header_t),       //... and generate the HMAC
+	                 bottle->bek.bytes, sizeof(bottle->bek),
+	                 sha1data);
+	memcpy(bottle->header->header_hmac, temp, sizeof(temp));                        //then copy it back in...
+	DO_OR_BAIL(ESIGFAIL, NOTHING, memcmp, temp, sha1data, sizeof(temp));            //... and do the actual comparison
 
 	return ESUCCESS;
 }
@@ -318,29 +308,17 @@ static int encrypt_bottle(bottle_t* bottle, int regen) {
 static int sign_bottle(bottle_t* bottle) {
 	assert(bottle != NULL);
 
-	//plaintext signature buffer (with magic)
-	bottle_signature_t plainsig = {
-		.magic = BOTTLE_MAGIC_SIGNATURE,
-	};
+	//HMAC table
+	hmac_sha1_buffer((unsigned char*)(bottle->table), bottle->header->size * sizeof(cap_t),
+	                 bottle->bek.bytes, sizeof(bottle->bek),
+	                 bottle->header->table_hmac);
 
-	//set up some stack space for AES crypto
-	aes_context ctx;
-	size_t iv_off = 0;
-
-	//hash table
-	sha1_buffer((unsigned char*)(bottle->table), bottle->header->size * sizeof(cap_t), plainsig.captable_hash);
-	//hash header
-	memset(&(bottle->header->signature), 0, sizeof(bottle->header->signature));
-	sha1_buffer((unsigned char*)bottle->header, sizeof(bottle_header_t), plainsig.header_hash);
-
-	//generate AES IV
-	generate_aes_key(&(plainsig.iv));
-	bottle->header->signature.iv = plainsig.iv; //and copy into header
-
-	//init and run AES
-	//Note: we're using the CFB128 mode
-	DO_OR_BAIL(ECRYPTFAIL, NOTHING, aes_setkey_enc, &ctx, bottle->bek.bytes, BOTTLE_KEY_SIZE);
-	DO_OR_BAIL(ECRYPTFAIL, NOTHING, aes_crypt_cfb128, &ctx, AES_ENCRYPT, sizeof(plainsig.encrypted_signature.bytes), &iv_off, plainsig.iv.bytes, plainsig.encrypted_signature.bytes, bottle->header->signature.encrypted_signature.bytes);
+	//HMAC header
+	memset(&(bottle->header->header_hmac), 0, sizeof(bottle->header->header_hmac));
+	hmac_sha1_buffer((unsigned char*)bottle->header, sizeof(bottle_header_t),
+	                 bottle->bek.bytes, sizeof(bottle->bek),
+	                 bottle->header->header_hmac); //XXX: this is cheating -- I avoid doing it onto the stack and copying because
+	                                               //                         I know that's how it's implemented
 
 	return ESUCCESS;
 }
@@ -662,8 +640,4 @@ static void compile_time_asserts(void) {
 
 	cap_t cap;
 	COMPILE_TIME_ASSERT(sizeof(cap.bytes) == sizeof(cap));
-
-	bottle_signature_t signature;
-	COMPILE_TIME_ASSERT(sizeof(signature.encrypted_signature.bytes) == sizeof(signature.encrypted_signature.blocks));
-	COMPILE_TIME_ASSERT(sizeof(signature.encrypted_signature.blocks) == sizeof(signature.captable_hash) + sizeof(signature.header_hash) + sizeof(signature.magic));
 }

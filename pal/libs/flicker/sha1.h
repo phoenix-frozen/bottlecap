@@ -38,5 +38,9 @@ void SHA1_copy(SHA1_CTX *dest, SHA1_CTX *src) __attribute__ ((section (".text.sl
 int sha1_buffer(const unsigned char *buffer, size_t len,
                 unsigned char md[SHA_DIGEST_LENGTH]);
 
+int hmac_sha1_buffer(const unsigned char *buffer, size_t len,
+                     const unsigned char *key,    size_t keylen,
+                     unsigned char md[SHA_DIGEST_LENGTH]);
+
 
 #endif
