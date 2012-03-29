@@ -100,18 +100,70 @@ int main(void) {
 			{
 				uint32_t* slots = (uint32_t*)pm_reserve(BOTTLE_SLOTCOUNT, sizeof(uint32_t));
 				if(slots == NULL) {
+					log_event(LOG_LEVEL_ERROR, "BOTTLECAP: Could not allocate slotcount\n");
 					*rv = -ENOMEM;
 					break;
 				}
+
 				*rv = bottle_query_free_slots(&bottle, slots);
 				break;
 			}
 
 		case BOTTLE_EXPIRE:
+			{
+				uint64_t* expiry;
+				if(pm_get_addr(BOTTLE_EXPIRY, (char**)&expiry) != sizeof(uint64_t)) {
+					log_event(LOG_LEVEL_ERROR, "BOTTLECAP: Could not get expiry\n");
+					*rv = -EINVAL;
+					break;
+				}
+
+				uint32_t* slots = (uint32_t*)pm_reserve(BOTTLE_SLOTCOUNT, sizeof(uint32_t));
+				if(slots == NULL) {
+					log_event(LOG_LEVEL_ERROR, "BOTTLECAP: Could not allocate slotcount\n");
+					*rv = -ENOMEM;
+					break;
+				}
+
+				*rv = bottle_expire(&bottle, *expiry, slots);
+				break;
+			}
+
+		case BOTTLE_CAP_ADD:
+			{
+				tpm_encrypted_cap_t* cap;
+				if(pm_get_addr(BOTTLE_CRYPTCAP, (char**)&cap) != sizeof(tpm_encrypted_cap_t)) {
+					log_event(LOG_LEVEL_ERROR, "BOTTLECAP: Could not get cap\n");
+					*rv = -EINVAL;
+					break;
+				}
+
+				uint32_t* slot = (uint32_t*)pm_reserve(BOTTLE_INDEX, sizeof(uint32_t));
+				if(slot == NULL) {
+					log_event(LOG_LEVEL_ERROR, "BOTTLECAP: Could not allocate index\n");
+					*rv = -ENOMEM;
+					break;
+				}
+
+				*rv = bottle_cap_add(&bottle, cap, slot);
+				break;
+			}
+
+		case BOTTLE_CAP_DELETE:
+			{
+				uint32_t* slot;
+				if(pm_get_addr(BOTTLE_INDEX, (char**)&slot) != sizeof(uint32_t)) {
+					log_event(LOG_LEVEL_ERROR, "BOTTLECAP: Could not get slot index\n");
+					*rv = -EINVAL;
+					break;
+				}
+
+				*rv = bottle_cap_delete(&bottle, *slot);
+				break;
+			}
+
 		case BOTTLE_EXPORT:
 		case BOTTLE_IMPORT:
-		case BOTTLE_CAP_ADD:
-		case BOTTLE_CAP_DELETE:
 		case BOTTLE_CAP_EXPORT:
 		case BOTTLE_NULL:
 		default:
