@@ -374,9 +374,13 @@ int bottle_init(bottle_t* bottle) {
 	if(bottle->header == NULL || bottle->table == NULL)
 		return -ENOMEM;
 
-	//impose a maximum size of one page for a table
+	//impose a maximum table size of one page
 	if(bottle->header->size > MAX_TABLE_LENGTH)
 		return -ENOMEM;
+
+	//impose a minimum table size of one slot
+	if(bottle->header->size < 1)
+		return -EINVAL;
 
 	//memorise some important information, and check it
 	uint32_t size  = bottle->header->size;

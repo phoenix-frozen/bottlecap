@@ -35,27 +35,39 @@ int main(void) {
 		return *rv;
 	}
 
-	//bring in bottle header
-	bottle_header_t* header_in;
-	if((temp = pm_get_addr(BOTTLE_HEADER, (char**)&header_in)) != sizeof(bottle_header_t)) {
-		log_event(LOG_LEVEL_ERROR, "BOTTLECAP: Could not get header: %d (headers are %d)\n", temp, sizeof(bottle_header_t));
-		*rv = -EINVAL;
-		return *rv;
-	}
-	if(header_in->size > MAX_TABLE_LENGTH) {
-		log_event(LOG_LEVEL_ERROR, "BOTTLECAP: Header specified invalid table size\n");
-		*rv = -ENOMEM;
-		return *rv;
-	}
-
-	//allocate header output space and copy
+	//allocate header output space
 	bottle.header = (bottle_header_t*)pm_reserve(BOTTLE_HEADER, sizeof(bottle_header_t));
 	if(bottle.header == NULL) {
 		log_event(LOG_LEVEL_ERROR, "BOTTLECAP: Could not allocate header\n");
 		*rv = -ENOMEM;
 		return *rv;
 	}
-	memcpy(bottle.header, header_in, sizeof(bottle_header_t));
+
+	//bring in bottle header and copy
+	// allow no or invalid input header if we're initting; just generate default values
+	bottle_header_t* header_in;
+	if((temp = pm_get_addr(BOTTLE_HEADER, (char**)&header_in)) != sizeof(bottle_header_t)) {
+		if(*call == BOTTLE_INIT) {
+			log_event(LOG_LEVEL_VERBOSE, "BOTTLECAP: Could not get header: %d (headers are %d), but in INIT so continuing\n", temp, sizeof(bottle_header_t));
+			header_in = NULL;
+		} else {
+			log_event(LOG_LEVEL_ERROR, "BOTTLECAP: Could not get header: %d (headers are %d)\n", temp, sizeof(bottle_header_t));
+			*rv = -EINVAL;
+			return *rv;
+		}
+	}
+	if(header_in == NULL) {
+		log_event(LOG_LEVEL_VERBOSE, "BOTTLECAP: Generating default header for INIT\n", temp, sizeof(bottle_header_t));
+		bottle.header->flags = 0;
+		bottle.header->size = MAX_TABLE_LENGTH;
+	} else {
+		if(header_in->size > MAX_TABLE_LENGTH) {
+			log_event(LOG_LEVEL_ERROR, "BOTTLECAP: Header specified invalid table size\n");
+			*rv = -ENOMEM;
+			return *rv;
+		}
+		memcpy(bottle.header, header_in, sizeof(bottle_header_t));
+	}
 
 	//XXX: header has now been allocated. from here on in, exits must go to main_zero_header
 
