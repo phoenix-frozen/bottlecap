@@ -603,9 +603,9 @@ int bottle_cap_attest(bottle_t* bottle, uint32_t slot, uint128_t nonce, uint64_t
 	//fill in everything except the proof, which we don't yet have
 	result.authdata.oid = bottle->table[slot].oid;
 	result.authdata.expiry = expiry;
-	result.authdata.padding_1 = 0;
+	result.authdata.amagic = ATTEST_MAGIC;
 	result.authdata.urights = bottle->table[slot].urights & urightsmask; //this is probably redundant, given the check above
-	result.authdata.padding_2 = 0;
+	result.authdata.cmagic = CAP_MAGIC_TOP;
 
 	//getting this far means we can start writing to the output buffer. write the unencrypted data first
 	output->nonce = nonce;

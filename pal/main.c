@@ -514,10 +514,10 @@ int main(void) {
 	assert(decrypted_attest_block.authdata.expiry == attest_block.expiry);
 	printf("\tcrypt_urights: %p/%p\n", (void*)decrypted_attest_block.authdata.urights, (void*)attest_block.urights);
 	assert(decrypted_attest_block.authdata.urights == attest_block.urights);
-	printf("\tcrypt_padding_1: %lld/%lld\n", decrypted_attest_block.authdata.padding_1, 0ULL);
-	assert(decrypted_attest_block.authdata.padding_1 == 0);
-	printf("\tcrypt_padding_2: %d/%d\n", decrypted_attest_block.authdata.padding_2, 0);
-	assert(decrypted_attest_block.authdata.padding_2 == 0);
+	printf("\tcrypt_amagic: 0x%16llx/0x%16llx\n", ATTEST_MAGIC, decrypted_attest_block.authdata.amagic);
+	assert(ATTEST_MAGIC == decrypted_attest_block.authdata.amagic);
+	printf("\tcrypt_cmagic: %p/%p\n", (void*)CAP_MAGIC_TOP, (void*)decrypted_attest_block.authdata.cmagic);
+	assert(CAP_MAGIC_TOP == decrypted_attest_block.authdata.cmagic);
 
 	END_TEST_SUITE();
 

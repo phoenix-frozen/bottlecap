@@ -109,6 +109,7 @@ int32_t bottle_cap_delete(bottle_t* bottle, uint32_t slot);
 //int32_t bottle_cap_export(bottle_t* bottle, uint32_t slot, tpm_rsakey_t* rbrk, int32_t move, tpm_encrypted_cap_t* cap);
 
 //CAP INVOCATION FUNCTIONS
+#define ATTEST_MAGIC 0xA77E57EDCA900000ULL
 /**
  * Data structure filled by bottle_cap_attest -- read the comment for that funtion
  * before going any further.
@@ -117,11 +118,11 @@ typedef struct {
 	uint128_t nonce; //nonce, in plaintext
 	union {
 		struct {
-			uint64_t  oid;       //cap OID
-			uint64_t  expiry;    //attestation block's expiry date
-			uint64_t  padding_1; //who-cares data; should probably be 0 for safety
-			uint32_t  urights;   //rights mask enabled for this attestation block
-			uint32_t  padding_2; //who-cares data; should probably be 0 for safety
+			uint64_t  oid;     //cap OID
+			uint64_t  expiry;  //attestation block's expiry date
+			uint64_t  amagic;  //0xA77E57EDCA90000
+			uint32_t  urights; //rights mask enabled for this attestation block
+			uint32_t  cmagic;  //0xCA9A817 -- CAP_MAGIC_TOP
 		};
 		unsigned char bytes[32];
 	} authdata; //{authority data}_cap.issuer, using nonce as IV
