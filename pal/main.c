@@ -203,12 +203,12 @@ main_zero_header:
 #include <stdlib.h>
 #include <assert.h>
 
-#include <aes.h>
-#include <sha1.h>
 #include <util.h>
+#include <polarssl/sha1.h>
+#include <polarssl/aes.h>
 
+#include <bottlecap/crypto.h>
 #include <bottlecap/cap.h>
-#include "tpm_crypto.h"
 
 static void* guaranteed_allocate(size_t size) {
 	void* temp = malloc(size);
@@ -319,9 +319,7 @@ int main(void) {
 	assert(rv == 0);
 
 	//... allocate the cryptcap, key, and IV...
-	tpm_encrypted_cap_t cryptcap = {
-		.cap = plaincap,
-	};
+	tpm_encrypted_cap_t cryptcap;
 	aeskey_t key;
 	rv = generate_aes_key(&key);
 	assert(rv == 0);
@@ -334,7 +332,7 @@ int main(void) {
 	iv_off = 0;
 	rv = aes_setkey_enc(&ctx, key.bytes, BOTTLE_KEY_SIZE);
 	assert(rv == 0);
-	rv = do_cap_crypto(&ctx, AES_ENCRYPT, &iv_off, &iv, &(cryptcap.cap));
+	rv = aes_crypt_cfb128(&ctx, AES_ENCRYPT, sizeof(plaincap), &iv_off, iv.bytes, plaincap.bytes, cryptcap.cap.bytes);
 	assert(rv == 0);
 
 	/* Test suite 2:

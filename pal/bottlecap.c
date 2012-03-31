@@ -1,9 +1,11 @@
 #include <assert.h>
 #include <string.h>
 
-#include <sha1.h>
+#include <polarssl/sha1.h>
 #include <polarssl/aes.h>
 
+#include <bottlecap/crypto.h>
+#include <bottlecap/cap.h>
 #include <bottlecap/errors.h>
 #include <bottlecap/bottlecap.h>
 
@@ -12,7 +14,6 @@
 #include <util.h>
 
 #include "misc.h"
-#include "tpm_crypto.h"
 
 #include <stdio.h>
 #ifdef BOTTLE_CAP_TEST
@@ -49,8 +50,6 @@ static int generate_aes_key(aeskey_t* key) {
 
 	return ESUCCESS;
 }
-
-#define hmac_sha1_buffer(d, dl, k, kl, r) sha1_buffer(d, dl, r)
 
 //check the bottle is valid, usable on this machine, signed, etc
 static int check_bottle(bottle_t* bottle) {
@@ -103,17 +102,17 @@ static int verify_bottle(bottle_t* bottle) {
 	assert(bottle->header->size <= MAX_TABLE_LENGTH);
 
 	//table HMAC
-	hmac_sha1_buffer((unsigned char*)(bottle->table), bottle->header->size * sizeof(cap_t),
-	                 bottle->bek.bytes, sizeof(bottle->bek),
-	                 sha1data);
+	sha1_hmac(bottle->bek.bytes, sizeof(bottle->bek),
+	         (unsigned char*)(bottle->table), bottle->header->size * sizeof(cap_t),
+	         sha1data);
 	DO_OR_BAIL(ESIGFAIL, NOTHING, memcmp, bottle->header->table_hmac, sha1data, sizeof(sha1hash_t));
 
 	//header signature
 	memcpy(temp, bottle->header->header_hmac, sizeof(temp));                        //copy the header HMAC out...
 	memset(&(bottle->header->header_hmac), 0, sizeof(bottle->header->header_hmac)); //... so we can zero the header field...
-	hmac_sha1_buffer((unsigned char*)bottle->header, sizeof(bottle_header_t),       //... and generate the HMAC
-	                 bottle->bek.bytes, sizeof(bottle->bek),
-	                 sha1data);
+	sha1_hmac(bottle->bek.bytes, sizeof(bottle->bek),
+	          (unsigned char*)bottle->header, sizeof(bottle_header_t),              //... and generate the HMAC
+	          sha1data);
 	memcpy(bottle->header->header_hmac, temp, sizeof(temp));                        //then copy it back in...
 	DO_OR_BAIL(ESIGFAIL, NOTHING, memcmp, temp, sha1data, sizeof(temp));            //... and do the actual comparison
 
@@ -268,8 +267,11 @@ static int decrypt_bottle(bottle_t* bottle) {
 	//Note: we're using the CFB128 mode, which means we use _enc even in decrypt mode
 	DO_OR_BAIL(ECRYPTFAIL, NOTHING, aes_setkey_enc, &ctx, bottle->bek.bytes, BOTTLE_KEY_SIZE);
 
-	for(uint32_t i = 0; i < bottle->header->size; i++)
-		DO_OR_BAIL(ECRYPTFAIL, NOTHING, do_cap_crypto, &ctx, AES_DECRYPT, &iv_off, &biv, bottle->table + i);
+	cap_t temp;
+	for(uint32_t i = 0; i < bottle->header->size; i++) {
+		DO_OR_BAIL(ECRYPTFAIL, NOTHING, aes_crypt_cfb128, &ctx, AES_DECRYPT, sizeof(temp), &iv_off, biv.bytes, (bottle->table + i)->bytes, temp.bytes);
+		*(bottle->table + i) = temp;
+	}
 
 	return ESUCCESS;
 }
@@ -299,8 +301,11 @@ static int encrypt_bottle(bottle_t* bottle, int regen) {
 	//Note: we're using the CFB128 mode
 	DO_OR_BAIL(ECRYPTFAIL, NOTHING, aes_setkey_enc, &ctx, bottle->bek.bytes, BOTTLE_KEY_SIZE);
 
-	for(uint32_t i = 0; i < bottle->header->size; i++)
-		DO_OR_BAIL(ECRYPTFAIL, NOTHING, do_cap_crypto, &ctx, AES_ENCRYPT, &iv_off, &biv, bottle->table + i);
+	cap_t temp;
+	for(uint32_t i = 0; i < bottle->header->size; i++) {
+		DO_OR_BAIL(ECRYPTFAIL, NOTHING, aes_crypt_cfb128, &ctx, AES_ENCRYPT, sizeof(temp), &iv_off, biv.bytes, (bottle->table + i)->bytes, temp.bytes);
+		*(bottle->table + i) = temp;
+	}
 
 	return ESUCCESS;
 }
@@ -311,16 +316,16 @@ static int sign_bottle(bottle_t* bottle) {
 	assert(bottle != NULL);
 
 	//HMAC table
-	hmac_sha1_buffer((unsigned char*)(bottle->table), bottle->header->size * sizeof(cap_t),
-	                 bottle->bek.bytes, sizeof(bottle->bek),
-	                 bottle->header->table_hmac);
+	sha1_hmac(bottle->bek.bytes, sizeof(bottle->bek),
+	          (unsigned char*)(bottle->table), bottle->header->size * sizeof(cap_t),
+	          bottle->header->table_hmac);
 
 	//HMAC header
 	memset(&(bottle->header->header_hmac), 0, sizeof(bottle->header->header_hmac));
-	hmac_sha1_buffer((unsigned char*)bottle->header, sizeof(bottle_header_t),
-	                 bottle->bek.bytes, sizeof(bottle->bek),
-	                 bottle->header->header_hmac); //XXX: this is cheating -- I avoid doing it onto the stack and copying because
-	                                               //                         I know that's how it's implemented
+	sha1_hmac(bottle->bek.bytes, sizeof(bottle->bek),
+	          (unsigned char*)bottle->header, sizeof(bottle_header_t),
+	          bottle->header->header_hmac); //XXX: this is cheating -- I avoid doing it onto the stack and copying because
+	                                        //                         I know that's how it's implemented
 
 	return ESUCCESS;
 }
@@ -491,7 +496,7 @@ int bottle_cap_add(bottle_t* bottle, tpm_encrypted_cap_t* cryptcap, uint32_t* sl
 	aeskey_t aeskey;
 	DO_OR_BAIL(ECRYPTFAIL, NOTHING, unseal_key, &(cryptcap->key), &aeskey);
 	uint128_t iv = cryptcap->iv;
-	cap_t cap = cryptcap->cap;
+	cap_t cap;
 
 	//initialise AES
 	aes_context ctx;
@@ -500,17 +505,17 @@ int bottle_cap_add(bottle_t* bottle, tpm_encrypted_cap_t* cryptcap, uint32_t* sl
 	DO_OR_BAIL(ECRYPTFAIL, NOTHING, aes_setkey_enc, &ctx, aeskey.bytes, BOTTLE_KEY_SIZE);
 
 	//decrypt the cap
-	DO_OR_BAIL(ECRYPTFAIL, NOTHING, do_cap_crypto, &ctx, AES_DECRYPT, &iv_off, &iv, &cap);
+	DO_OR_BAIL(ECRYPTFAIL, ANNIHILATE(&ctx, sizeof(ctx)), aes_crypt_cfb128, &ctx, AES_DECRYPT, sizeof(cap), &iv_off, iv.bytes, cryptcap->cap.bytes, cap.bytes);
 
 	//check the cap is valid
-	DO_OR_BAIL(0, ANNIHILATE(&cap, sizeof(cap_t)), check_cap, &cap);
+	DO_OR_BAIL(0, ANNIHILATE(&cap, sizeof(cap)); ANNIHILATE(&ctx, sizeof(ctx)), check_cap, &cap);
 
 	//0 expiry date not allowed
 	if(cap.expiry == 0)
 		return -EINVAL;
 
 	//now that we've successfully decrypted the cap, decrypt the bottle
-	DO_OR_BAIL(0, ANNIHILATE(&cap, sizeof(cap_t)), bottle_op_prologue, bottle);
+	DO_OR_BAIL(0, ANNIHILATE(&cap, sizeof(cap_t)); ANNIHILATE(&ctx, sizeof(ctx)), bottle_op_prologue, bottle);
 
 	//find a free slot
 	uint32_t i;
@@ -529,6 +534,7 @@ int bottle_cap_add(bottle_t* bottle, tpm_encrypted_cap_t* cryptcap, uint32_t* sl
 
 	//we're done; destroy the unencrypted cap
 	ANNIHILATE(&cap, sizeof(cap));
+	ANNIHILATE(&ctx, sizeof(ctx));
 
 	DO_OR_BAIL(0, NOTHING, bottle_op_epilogue, bottle, 1);
 
