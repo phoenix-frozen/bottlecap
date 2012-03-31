@@ -315,25 +315,27 @@ int main(void) {
 		.oid = 0xdeadbeefcafebabeULL,
 	} };
 	//... generate its issuer key
-	//TODO: NDEBUG bug!
-	assert(generate_aes_key(&(plaincap.issuer)) == 0);
+	rv = generate_aes_key(&(plaincap.issuer));
+	assert(rv == 0);
 
 	//... allocate the cryptcap, key, and IV...
 	tpm_encrypted_cap_t cryptcap = {
 		.cap = plaincap,
 	};
-	//TODO: NDEBUG bug!
 	aeskey_t key;
-	assert(generate_aes_key(&key) == 0);
+	rv = generate_aes_key(&key);
+	assert(rv == 0);
 	memcpy(cryptcap.key.sealed_data, key.bytes, sizeof(key));
-	assert(generate_aes_key(&(cryptcap.iv)) == 0);
+	rv = generate_aes_key(&(cryptcap.iv));
+	assert(rv == 0);
 
 	//...and encrypt it
 	iv = cryptcap.iv;
 	iv_off = 0;
-	//TODO: NDEBUG bug!
-	assert(aes_setkey_enc(&ctx, key.bytes, BOTTLE_KEY_SIZE) == 0);
-	assert(do_cap_crypto(&ctx, AES_ENCRYPT, &iv_off, &iv, &(cryptcap.cap)) == 0);
+	rv = aes_setkey_enc(&ctx, key.bytes, BOTTLE_KEY_SIZE);
+	assert(rv == 0);
+	rv = do_cap_crypto(&ctx, AES_ENCRYPT, &iv_off, &iv, &(cryptcap.cap));
+	assert(rv == 0);
 
 	/* Test suite 2:
 	 * Add a cap, and delete it.
@@ -478,35 +480,45 @@ int main(void) {
 
 	//do the attestation
 	rv = bottle_cap_attest(bottle, slot, nonce, 1001, 0, &attest_block);
-	printf("bottle_cap_export(%p, %u, 0x%llx%llx, %llu, %p, %p): %d\n", bottle, slot, nonce.qwords[0], nonce.qwords[1], 1001ULL, (void*)0, &attest_block, rv);
+	printf("bottle_cap_attest(%p, %u, 0x%llx%llx, %llu, %p, %p): %d\n", bottle, slot, nonce.qwords[0], nonce.qwords[1], 1001ULL, (void*)0, &attest_block, rv);
 	assert(rv == 0);
 
 	//check the plaintext values
+	printf("checking attestation values...\n");
 	rv = memcmp(attest_block.nonce.bytes, nonce.bytes, sizeof(nonce));
+	printf("\tnonce: memcmp(%p, %p, %d): %d\n", attest_block.nonce.bytes, nonce.bytes, sizeof(nonce), rv);
 	assert(rv == 0);
+	printf("\texpiry: %lld/%lld\n", 1001ULL, attest_block.expiry);
 	assert(attest_block.expiry == 1001);
+	printf("\turights: %p/%p\n", (void*)0, (void*)attest_block.urights);
 	assert(attest_block.urights == 0);
 
-	//check the hash calculation
+	//check the HMAC calculation
 	sha1hash_t sha1data;
-	//XXX: warning, this pointer arithmetic may assume little-endian
-	sha1_buffer((unsigned char*)&attest_block, sizeof(attest_block.nonce) + sizeof(attest_block.authdata), sha1data);
-	rv = memcmp(sha1data, attest_block.signature.hash, sizeof(sha1data));
+	sha1_hmac(plaincap.issuer.bytes, sizeof(plaincap.issuer.bytes), attest_block.authdata.bytes, sizeof(attest_block.authdata), sha1data);
+	rv = memcmp(sha1data, attest_block.hmac, sizeof(sha1data));
+	printf("\thmac: memcmp(%p, %p, %d): %d\n", sha1data, attest_block.hmac, sizeof(sha1data), rv);
 	assert(rv == 0);
 
 	//decrypt the encrypted block
-	//TODO: NDEBUG bug!
 	cap_attestation_block_t decrypted_attest_block;
 	iv_off = 0;
-	assert(aes_setkey_enc(&ctx, plaincap.issuer.bytes, BOTTLE_KEY_SIZE) == 0);
+	rv = aes_setkey_enc(&ctx, plaincap.issuer.bytes, BOTTLE_KEY_SIZE);
+	assert(rv == 0);
 	iv = nonce;
-	assert(aes_crypt_cfb128(&ctx, AES_DECRYPT, sizeof(decrypted_attest_block.authdata), &iv_off, iv.bytes, attest_block.authdata.bytes, decrypted_attest_block.authdata.bytes) == 0);
+	rv = aes_crypt_cfb128(&ctx, AES_DECRYPT, sizeof(decrypted_attest_block.authdata), &iv_off, iv.bytes, attest_block.authdata.bytes, decrypted_attest_block.authdata.bytes);
+	assert(rv == 0);
 
 	//check all the results
+	printf("\tcrypt_oid: %lld/%lld\n", decrypted_attest_block.authdata.oid, plaincap.oid);
 	assert(decrypted_attest_block.authdata.oid == plaincap.oid);
+	printf("\tcrypt_expiry: %lld/%lld\n", decrypted_attest_block.authdata.expiry, attest_block.expiry);
 	assert(decrypted_attest_block.authdata.expiry == attest_block.expiry);
+	printf("\tcrypt_urights: %p/%p\n", (void*)decrypted_attest_block.authdata.urights, (void*)attest_block.urights);
 	assert(decrypted_attest_block.authdata.urights == attest_block.urights);
+	printf("\tcrypt_padding_1: %lld/%lld\n", decrypted_attest_block.authdata.padding_1, 0ULL);
 	assert(decrypted_attest_block.authdata.padding_1 == 0);
+	printf("\tcrypt_padding_2: %d/%d\n", decrypted_attest_block.authdata.padding_2, 0);
 	assert(decrypted_attest_block.authdata.padding_2 == 0);
 
 	END_TEST_SUITE();

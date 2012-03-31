@@ -54,38 +54,38 @@ static int generate_aes_key(aeskey_t* key) {
 
 //check the bottle is valid, usable on this machine, signed, etc
 static int check_bottle(bottle_t* bottle) {
-	DPRINTF("enter(%p)\n", bottle);
+	//DPRINTF("enter(%p)\n", bottle);
 	//bottle == NULL is a programming error
 	assert(bottle != NULL);
 
 	//initial sanity checks
-	DPRINTF("data structure checks...\n");
+	//DPRINTF("data structure checks...\n");
 	if(bottle->header == NULL)
 		return -ENOMEM;
 	if(bottle->table == NULL)
 		return -ENOMEM;
 
 	//correct header magic
-	DPRINTF("top magic check...\n");
+	//DPRINTF("top magic check...\n");
 	if(bottle->header->magic_top != BOTTLE_MAGIC_TOP)
 		return -EINVAL;
-	DPRINTF("bottom magic check...\n");
+	//DPRINTF("bottom magic check...\n");
 	if(bottle->header->magic_bottom != BOTTLE_MAGIC_BOTTOM)
 		return -EINVAL;
 
 #ifndef BOTTLE_CAP_TEST
 	//sealed blob size
-	DPRINTF("sealed-size check...\n");
+	//DPRINTF("sealed-size check...\n");
 	if(bottle->header->bek.sealed_data_size > sizeof(bottle->header->bek.sealed_data))
 		return -EINVAL;
 #endif //BOTTLE_CAP_TEST
 
 	//correct table dimensions
-	DPRINTF("bottle size check...\n");
+	//DPRINTF("bottle size check...\n");
 	if(bottle->header->size > MAX_TABLE_LENGTH)
 		return -ENOMEM;
 
-	DPRINTF("exit\n");
+	//DPRINTF("exit\n");
 	return ESUCCESS;
 }
 
@@ -622,10 +622,8 @@ int bottle_cap_attest(bottle_t* bottle, uint32_t slot, uint128_t nonce, uint64_t
 		goto attest_exit;
 	}
 
-	//generate signature
-	//TODO: generate real signature
-	//XXX: warning, this pointer arithmetic assumes little-endian
-	sha1_buffer((unsigned char*)&(output->nonce), sizeof(output->nonce) + sizeof(output->authdata), output->signature.hash);
+	//generate HMAC
+	sha1_hmac(bottle->table[slot].issuer.bytes, sizeof(bottle->table[slot].issuer), output->authdata.bytes, sizeof(output->authdata), output->hmac);
 	assert(output->expiry  == expiry);
 	assert(output->urights == urightsmask);
 

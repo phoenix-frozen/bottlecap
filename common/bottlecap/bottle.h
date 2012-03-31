@@ -18,7 +18,7 @@ typedef struct {
 	uint32_t magic_top; //0x80771ECA
 
 	//aes cryptographic stuff; always 128-bit AES
-	uint128_t    biv; //{Bottle Initialization Vector}_SRK (sealed)
+	uint128_t    biv; //Bottle Initialization Vector
 	tpm_aeskey_t bek; //{Bottle Encryption Key}_SRK (sealed)
 
 	//bottle configuration stuff

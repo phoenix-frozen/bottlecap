@@ -19,17 +19,8 @@ typedef uint8_t sha1hash_t[20];
 // from a tpm_rsakey_t
 typedef struct {
 	uint32_t sealed_data_size;
-	unsigned char sealed_data[384];
+	uint8_t  sealed_data[384];
 } tpm_aeskey_t;
-
-//a 'symmetric signature' -- that is, a SHA1 hash that's been AES-encrypted
-typedef struct {
-	uint128_t iv;
-	union {
-		uint128_t  encdata[2]; //padding out to a block size
-		sha1hash_t hash;       //hash of data
-	};
-} sym_signature_t;
 
 #endif /* __CRYPTO_H__ */
 

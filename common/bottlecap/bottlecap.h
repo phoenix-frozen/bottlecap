@@ -124,9 +124,9 @@ typedef struct {
 			uint32_t  padding_2; //who-cares data; should probably be 0 for safety
 		};
 		unsigned char bytes[32];
-	} authdata; //{authority data}_cap.key, using nonce as IV
+	} authdata; //{authority data}_cap.issuer, using nonce as IV
 
-	sym_signature_t signature; //{SHA1(authdata)}_BEK
+	sha1hash_t hmac; //SHA1(authdata, issuer)
 
 	uint64_t expiry;  //repeat of the same fields as above, in plaintext, for easy introspection.
 	uint32_t urights; // should not be used by any security-sensitive code (which should be able

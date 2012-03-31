@@ -32,7 +32,7 @@ typedef struct {
 	tpm_aeskey_t key; //{key}_[some TPM-bound RSA key]
 	uint128_t iv;     //IV for encryption of cap
 	cap_t cap;        //{cap}_key
-	sym_signature_t signature; //symmetric-signature of rest of data structure under key
+	sha1hash_t hmac;  //SHA1(cap, key)
 } tpm_encrypted_cap_t;
 
 #endif /* __CAP_H__ */
