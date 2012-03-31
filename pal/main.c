@@ -334,6 +334,7 @@ int main(void) {
 	assert(rv == 0);
 	rv = aes_crypt_cfb128(&ctx, AES_ENCRYPT, sizeof(plaincap), &iv_off, iv.bytes, plaincap.bytes, cryptcap.cap.bytes);
 	assert(rv == 0);
+	sha1_hmac(key.bytes, sizeof(key), cryptcap.cap.bytes, sizeof(cryptcap.cap), cryptcap.hmac);
 
 	/* Test suite 2:
 	 * Add a cap, and delete it.

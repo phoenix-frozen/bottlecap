@@ -498,6 +498,10 @@ int bottle_cap_add(bottle_t* bottle, tpm_encrypted_cap_t* cryptcap, uint32_t* sl
 	uint128_t iv = cryptcap->iv;
 	cap_t cap;
 
+	sha1hash_t hmac;
+	sha1_hmac(aeskey.bytes, sizeof(aeskey), cryptcap->cap.bytes, sizeof(cryptcap->cap), hmac);
+	DO_OR_BAIL(ESIGFAIL, ANNIHILATE(aeskey.bytes, sizeof(aeskey)), memcmp, hmac, cryptcap->hmac, sizeof(hmac));
+
 	//initialise AES
 	aes_context ctx;
 	size_t iv_off = 0;
