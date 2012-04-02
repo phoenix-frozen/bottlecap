@@ -11,9 +11,12 @@
 #include <params.h>
 #include <util.h>
 
+#include "profiling.h"
 #include "misc.h"
 
-int main(void) {
+static int do_bottle_cap(void) {
+	profiling_start(NULL);
+
 	log_event(LOG_LEVEL_VERBOSE, "BOTTLECAP: Hello from main() (PAL)\n");
 	log_event(LOG_LEVEL_VERBOSE, "BOTTLECAP: %d bytes available for output\n", pm_avail());
 
@@ -48,12 +51,12 @@ int main(void) {
 	bottle_header_t* header_in;
 	if((temp = pm_get_addr(BOTTLE_HEADER, (char**)&header_in)) != sizeof(bottle_header_t)) {
 		if(*call == BOTTLE_INIT) {
-			log_event(LOG_LEVEL_VERBOSE, "BOTTLECAP: Could not get header: %d (headers are %d), but in INIT so continuing\n", temp, sizeof(bottle_header_t));
+			log_event(LOG_LEVEL_VERBOSE, "BOTTLECAP: Could not get header: %d (headers are %d) [non-fatal in INIT]\n", temp, sizeof(bottle_header_t));
 			header_in = NULL;
 		} else {
 			log_event(LOG_LEVEL_ERROR, "BOTTLECAP: Could not get header: %d (headers are %d)\n", temp, sizeof(bottle_header_t));
 			*rv = -EINVAL;
-			return *rv;
+			goto main_final_exit;
 		}
 	}
 	if(header_in == NULL) {
@@ -64,7 +67,7 @@ int main(void) {
 		if(header_in->size > MAX_TABLE_LENGTH) {
 			log_event(LOG_LEVEL_ERROR, "BOTTLECAP: Header specified invalid table size\n");
 			*rv = -ENOMEM;
-			return *rv;
+			goto main_final_exit;
 		}
 		memcpy(bottle.header, header_in, sizeof(bottle_header_t));
 	}
@@ -93,6 +96,8 @@ int main(void) {
 	}
 
 	log_event(LOG_LEVEL_VERBOSE, "BOTTLECAP: Dispatching call %d...\n", *call);
+
+	profiling_lap("begin dispatch");
 
 	//main dispatch table
 	switch (*call) {
@@ -183,6 +188,7 @@ int main(void) {
 			break;
 	}
 
+	profiling_lap("dispatched; zero");
 	log_event(LOG_LEVEL_VERBOSE, "BOTTLECAP: Dispatch complete. Return value %d\n", *rv);
 
 	//if our call wasn't successful, zero the output buffers
@@ -193,10 +199,27 @@ main_zero_header:
 		memset(bottle.header, 0, sizeof(bottle_header_t));
 	}
 
+main_final_exit:
 	log_event(LOG_LEVEL_VERBOSE, "BOTTLECAP: Returning to reality.\n");
+
+	profiling_stop(NULL);
 
 	return *rv;
 }
+
+int main(void) {
+	int rv = do_bottle_cap();
+
+#ifdef BOTTLE_CAP_PROFILE
+	unsigned int profiling_output_size = sizeof(timing_point_t) * profiling_count();
+	timing_point_t* profiling_output = (timing_point_t*)pm_reserve(BOTTLE_PROFILING, profiling_output_size);
+	if(profiling_output != NULL)
+		memcpy(profiling_output, profiling_get(), profiling_output_size );
+#endif //BOTTLE_CAP_PROFILE
+
+	return rv;
+}
+
 
 #else //BOTTLE_CAP_TEST
 

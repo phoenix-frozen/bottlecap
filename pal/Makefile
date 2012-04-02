@@ -22,8 +22,8 @@ CFLAGS += -msoft-float
 CFLAGS += -fno-jump-tables
 CFLAGS += -fno-stack-protector
 all: CFLAGS += -fno-builtin -I$(CURDIR)/rte
-all: CFLAGS += -DNDEBUG -DPERFCRIT
-test: CFLAGS += -DnotPERFCRIT
+all: CFLAGS += -DNDEBUG -DPERFCRIT -DBOTTLECAP_PROFILE
+test: CFLAGS += -DnotPERFCRIT -DBOTTLECAP_PROFILE
 
 CFLAGS += -DMIN_LOG_LEVEL=1
 test: CFLAGS += -DBOTTLE_CAP_TEST

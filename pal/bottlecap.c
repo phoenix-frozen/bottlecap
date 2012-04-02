@@ -13,6 +13,7 @@
 
 #include <util.h>
 
+#include "profiling.h"
 #include "misc.h"
 
 #include <stdio.h>
@@ -25,6 +26,7 @@
 
 //generate a 128-bit AES key
 static int generate_aes_key(aeskey_t* key) {
+	profiling_start(NULL);
 	assert(key != NULL);
 
 #ifdef BOTTLE_CAP_TEST
@@ -48,6 +50,7 @@ static int generate_aes_key(aeskey_t* key) {
 	printf("\n");
 #endif
 
+	profiling_stop(NULL);
 	return ESUCCESS;
 }
 
@@ -56,6 +59,7 @@ static int check_bottle(bottle_t* bottle) {
 	//DPRINTF("enter(%p)\n", bottle);
 	//bottle == NULL is a programming error
 	assert(bottle != NULL);
+	profiling_start(NULL);
 
 	//initial sanity checks
 	//DPRINTF("data structure checks...\n");
@@ -85,12 +89,14 @@ static int check_bottle(bottle_t* bottle) {
 		return -ENOMEM;
 
 	//DPRINTF("exit\n");
+	profiling_stop(NULL);
 	return ESUCCESS;
 }
 
 //check the bottle is valid, usable on this machine, signed, etc
 //assumes BEK is available
 static int verify_bottle(bottle_t* bottle) {
+	profiling_start(NULL);
 	sha1hash_t sha1data, temp;
 
 	//bottle == NULL is a programming error
@@ -116,11 +122,13 @@ static int verify_bottle(bottle_t* bottle) {
 	memcpy(bottle->header->header_hmac, temp, sizeof(temp));                        //then copy it back in...
 	DO_OR_BAIL(ESIGFAIL, NOTHING, memcmp, temp, sha1data, sizeof(temp));            //... and do the actual comparison
 
+	profiling_stop(NULL);
 	return ESUCCESS;
 }
 
 //check that a cap is sane
 static int check_cap(cap_t* cap) {
+	profiling_start(NULL);
 	assert(cap != NULL);
 
 	if(cap->magic_top != CAP_MAGIC_TOP)
@@ -128,11 +136,14 @@ static int check_cap(cap_t* cap) {
 	if(cap->magic_bottom != CAP_MAGIC_BOTTOM)
 		return -ECORRUPT;
 
+	profiling_stop(NULL);
 	return ESUCCESS;
 }
 
 //check that the contents of a decrypted bottle are sane
 static int check_caps(bottle_t* bottle) {
+	profiling_start(NULL);
+
 	//bottle == NULL is a programming error
 	assert(bottle != NULL);
 
@@ -145,14 +156,17 @@ static int check_caps(bottle_t* bottle) {
 	for(int i = 0; i < bottle->header->size; i++)
 		DO_OR_BAIL(0, NOTHING, check_cap, bottle->table + i);
 
+	profiling_stop(NULL);
 	return ESUCCESS;
 }
 
 //emergency security-breakage utility function
 static void bottle_annihilate(bottle_t* bottle) {
+	profiling_start(NULL);
 	ANNIHILATE(bottle->table,  bottle->header->size * sizeof(cap_t));
 	ANNIHILATE(bottle->header, sizeof(*(bottle->header)));
 	ANNIHILATE(bottle->bek.bytes, sizeof(bottle->bek));
+	profiling_stop(NULL);
 }
 
 //key-sealing utility functions
@@ -171,7 +185,7 @@ static int seal_key(tpm_aeskey_t* keyblob, aeskey_t* key) {
 	memcpy(keyblob->sealed_data, key->bytes, sizeof(*key));
 	return 0;
 }
-static int unseal_key(tpm_aeskey_t* keyblob, aeskey_t* key) {
+static int unseal_key(tpm_aeskey_t* keyblob, aeskey_t* key, int check) {
 	assert(keyblob != NULL);
 	assert(key != NULL);
 
@@ -180,6 +194,8 @@ static int unseal_key(tpm_aeskey_t* keyblob, aeskey_t* key) {
 }
 #else //BOTTLE_CAP_TEST
 static int seal_key(tpm_aeskey_t* keyblob, aeskey_t* key) {
+	profiling_start(NULL);
+
 	assert(keyblob != NULL);
 	assert(key != NULL);
 
@@ -200,6 +216,8 @@ static int seal_key(tpm_aeskey_t* keyblob, aeskey_t* key) {
 	//allocate remaining metadata
 	uint8_t pcr_indcs[3] = {17, 18, 19};
 	uint32_t sealed_data_size = sizeof(keyblob->sealed_data);
+
+	profiling_lap("seal key");
 
 	//seal the key blob
 	DO_OR_BAIL(ECRYPTFAIL, NOTHING, tpm_seal, TPM_LOCALITY,
@@ -228,9 +246,13 @@ static int seal_key(tpm_aeskey_t* keyblob, aeskey_t* key) {
 	//);
 
 	keyblob->sealed_data_size = sealed_data_size;
+
+	profiling_stop(NULL);
 	return 0;
 }
-static int unseal_key(tpm_aeskey_t* keyblob, aeskey_t* key) {
+static int unseal_key(tpm_aeskey_t* keyblob, aeskey_t* key, int check) {
+	profiling_start(NULL);
+
 	assert(keyblob != NULL);
 	assert(key != NULL);
 
@@ -243,6 +265,22 @@ static int unseal_key(tpm_aeskey_t* keyblob, aeskey_t* key) {
 		return -ECRYPTFAIL;
 	}
 
+	profiling_lap("read PCR values");
+
+	if(check) {
+		tpm_pcr_value_t pcr17;
+		tpm_pcr_value_t pcr18;
+		tpm_pcr_value_t pcr19;
+
+		DO_OR_BAIL(ECRYPTFAIL, ANNIHILATE(key, sizeof(*key)), tpm_pcr_read, TPM_LOCALITY, 17, &pcr17);
+		DO_OR_BAIL(ECRYPTFAIL, ANNIHILATE(key, sizeof(*key)), tpm_pcr_read, TPM_LOCALITY, 18, &pcr18);
+		DO_OR_BAIL(ECRYPTFAIL, ANNIHILATE(key, sizeof(*key)), tpm_pcr_read, TPM_LOCALITY, 19, &pcr19);
+
+		//TODO: do state check here, with information returned from tpm_unseal()
+		//      (in the meantime, these are here for profiling purposes)
+	}
+
+	profiling_stop(NULL);
 	return ESUCCESS;
 }
 #endif //BOTTLE_CAP_TEST
@@ -250,6 +288,7 @@ static int unseal_key(tpm_aeskey_t* keyblob, aeskey_t* key) {
 //decrypt the captable in-place
 //assumes that the BEK is already decrypted
 static int decrypt_bottle(bottle_t* bottle) {
+	profiling_start(NULL);
 	//bottle == NULL is a programming error
 	assert(bottle != NULL);
 
@@ -273,12 +312,14 @@ static int decrypt_bottle(bottle_t* bottle) {
 		*(bottle->table + i) = temp;
 	}
 
+	profiling_stop(NULL);
 	return ESUCCESS;
 }
 
 //encrypt the captable in-place
 //assumes the BEK was extracted during decrypt_bottle
 static int encrypt_bottle(bottle_t* bottle, int regen) {
+	profiling_start(NULL);
 	//bottle == NULL is a programming error
 	assert(bottle != NULL);
 
@@ -307,12 +348,14 @@ static int encrypt_bottle(bottle_t* bottle, int regen) {
 		*(bottle->table + i) = temp;
 	}
 
+	profiling_stop(NULL);
 	return ESUCCESS;
 }
 
 //sign the bottle's current state
 //assumes the BEK is available
 static int sign_bottle(bottle_t* bottle) {
+	profiling_start(NULL);
 	assert(bottle != NULL);
 
 	//HMAC table
@@ -327,18 +370,20 @@ static int sign_bottle(bottle_t* bottle) {
 	          bottle->header->header_hmac); //XXX: this is cheating -- I avoid doing it onto the stack and copying because
 	                                        //                         I know that's how it's implemented
 
+	profiling_stop(NULL);
 	return ESUCCESS;
 }
 
 //standard prologue for bottle operations: verify signatures and decrypt
 static int bottle_op_prologue(bottle_t* bottle) {
+	profiling_start(NULL);
 	assert(bottle != NULL);
 
 	//check the bottle header fields are sane
 	DO_OR_BAIL(0, NOTHING, check_bottle, bottle);
 
 	//unseal BEK
-	DO_OR_BAIL(ECRYPTFAIL, NOTHING, unseal_key, &(bottle->header->bek), &(bottle->bek));
+	DO_OR_BAIL(ECRYPTFAIL, NOTHING, unseal_key, &(bottle->header->bek), &(bottle->bek), 1);
 
 	//check the bottle hashes and signatures
 	DO_OR_BAIL(0, ANNIHILATE(bottle->bek.bytes, sizeof(aeskey_t)), verify_bottle, bottle);
@@ -349,6 +394,7 @@ static int bottle_op_prologue(bottle_t* bottle) {
 	//check that the decrypted captable makes sense
 	DO_OR_BAIL(0, ANNIHILATE(bottle->bek.bytes, sizeof(aeskey_t)), check_caps, bottle);
 
+	profiling_stop(NULL);
 	return ESUCCESS;
 }
 /* standard epilogue for bottle operations: encrypt and sign.
@@ -356,6 +402,7 @@ static int bottle_op_prologue(bottle_t* bottle) {
  * signatures; should only be false on a read-only operation
  */
 static int bottle_op_epilogue(bottle_t* bottle, int regen) {
+	profiling_start(NULL);
 	assert(bottle != NULL);
 
 	//check that the captable makes sense
@@ -371,11 +418,14 @@ static int bottle_op_epilogue(bottle_t* bottle, int regen) {
 	//clear unencrypted BEK
 	ANNIHILATE(bottle->bek.bytes, sizeof(bottle->bek));
 
+	profiling_stop(NULL);
 	return ESUCCESS;
 }
 
 //BOTTLE CREATION/DELETION
 int bottle_init(bottle_t* bottle) {
+	profiling_start(NULL);
+
 	if(bottle->header == NULL || bottle->table == NULL)
 		return -ENOMEM;
 
@@ -394,6 +444,7 @@ int bottle_init(bottle_t* bottle) {
 		return -ENOTSUP;
 
 	//clear the header, and put back the information we borrowed
+	profiling_lap("formatting header");
 	memset(bottle->header, 0, sizeof(*(bottle->header)));
 	bottle->header->size  = size;
 	bottle->header->flags = flags;
@@ -407,6 +458,7 @@ int bottle_init(bottle_t* bottle) {
 	bottle->header->magic_bottom = BOTTLE_MAGIC_BOTTOM;
 
 	//format the table
+	profiling_lap("formatting table");
 	memset(bottle->table, 0, size * sizeof(cap_t));
 	for(int i = 0; i < size; i++) {
 		bottle->table[i].magic_top    = CAP_MAGIC_TOP;
@@ -416,6 +468,7 @@ int bottle_init(bottle_t* bottle) {
 	//encrypt and sign
 	DO_OR_BAIL(0, NOTHING, bottle_op_epilogue, bottle, 1);
 
+	profiling_stop(NULL);
 	return ESUCCESS;
 }
 int bottle_destroy(bottle_t* bottle) {
@@ -427,6 +480,7 @@ int bottle_destroy(bottle_t* bottle) {
 
 //BOTTLE STATE FUNCTIONS
 int bottle_query_free_slots(bottle_t* bottle, uint32_t* slots) {
+	profiling_start(NULL);
 	if(slots == NULL)
 		return -EINVAL;
 
@@ -446,9 +500,11 @@ int bottle_query_free_slots(bottle_t* bottle, uint32_t* slots) {
 
 	DO_OR_BAIL(0, NOTHING, bottle_op_epilogue, bottle, 0);
 
+	profiling_stop(NULL);
 	return ESUCCESS;
 }
 int bottle_expire(bottle_t* bottle, uint64_t time, uint32_t* slots) {
+	profiling_start(NULL);
 	if(slots == NULL)
 		return -EINVAL;
 
@@ -474,6 +530,7 @@ int bottle_expire(bottle_t* bottle, uint64_t time, uint32_t* slots) {
 
 	DO_OR_BAIL(0, NOTHING, bottle_op_epilogue, bottle, 1);
 
+	profiling_stop(NULL);
 	return ESUCCESS;
 }
 
@@ -489,18 +546,23 @@ int bottle_import(bottle_t* bottle, tpm_rsakey_t* brk) {
 
 //CAP INSERTION/DELETION FUNCTIONS
 int bottle_cap_add(bottle_t* bottle, tpm_encrypted_cap_t* cryptcap, uint32_t* slot) {
+	profiling_start(NULL);
 	//pull relevant data onto our stack
 	//TODO: tpm_encrypted_cap_t contains key in plaintext
 	//      for the moment, we just assume a tpm_encrypted_cap_t contains
 	//      its key in plaintext. and copy everything out to our stack
 	aeskey_t aeskey;
-	DO_OR_BAIL(ECRYPTFAIL, NOTHING, unseal_key, &(cryptcap->key), &aeskey);
+	DO_OR_BAIL(ECRYPTFAIL, NOTHING, unseal_key, &(cryptcap->key), &aeskey, 0);
 	uint128_t iv = cryptcap->iv;
 	cap_t cap;
+
+	profiling_lap("cap HMAC");
 
 	sha1hash_t hmac;
 	sha1_hmac(aeskey.bytes, sizeof(aeskey), cryptcap->cap.bytes, sizeof(cryptcap->cap), hmac);
 	DO_OR_BAIL(ESIGFAIL, ANNIHILATE(aeskey.bytes, sizeof(aeskey)), memcmp, hmac, cryptcap->hmac, sizeof(hmac));
+
+	profiling_lap("decrypt cap");
 
 	//initialise AES
 	aes_context ctx;
@@ -518,8 +580,12 @@ int bottle_cap_add(bottle_t* bottle, tpm_encrypted_cap_t* cryptcap, uint32_t* sl
 	if(cap.expiry == 0)
 		return -EINVAL;
 
+	profiling_lap("decrypt bottle");
+
 	//now that we've successfully decrypted the cap, decrypt the bottle
 	DO_OR_BAIL(0, ANNIHILATE(&cap, sizeof(cap_t)); ANNIHILATE(&ctx, sizeof(ctx)), bottle_op_prologue, bottle);
+
+	profiling_lap("search bottle");
 
 	//find a free slot
 	uint32_t i;
@@ -542,9 +608,12 @@ int bottle_cap_add(bottle_t* bottle, tpm_encrypted_cap_t* cryptcap, uint32_t* sl
 
 	DO_OR_BAIL(0, NOTHING, bottle_op_epilogue, bottle, 1);
 
+	profiling_stop(NULL);
 	return (i < bottle->header->size) ? ESUCCESS : -ENOMEM;
 }
 int bottle_cap_delete(bottle_t* bottle, uint32_t slot) {
+	profiling_start(NULL);
+
 	if(slot > bottle->header->size)
 		return -EINVAL;
 
@@ -561,6 +630,7 @@ int bottle_cap_delete(bottle_t* bottle, uint32_t slot) {
 
 	DO_OR_BAIL(0, NOTHING, bottle_op_epilogue, bottle, resign);
 
+	profiling_stop(NULL);
 	return ESUCCESS;
 }
 
@@ -573,6 +643,7 @@ int bottle_cap_export(bottle_t* bottle, uint32_t slot, tpm_rsakey_t* rbrk, int32
 
 //CAP INVOCATION FUNCTIONS
 int bottle_cap_attest(bottle_t* bottle, uint32_t slot, uint128_t nonce, uint64_t expiry, uint32_t urightsmask, cap_attestation_block_t* output) {
+	profiling_start(NULL);
 	if(output == NULL)
 		return -ENOMEM;
 
@@ -616,6 +687,8 @@ int bottle_cap_attest(bottle_t* bottle, uint32_t slot, uint128_t nonce, uint64_t
 	output->expiry  = expiry;
 	output->urights = urightsmask;
 
+	profiling_lap("encrypt output data");
+
 	//initialise AES state
 	aes_context ctx;
 	size_t iv_off = 0;
@@ -633,6 +706,7 @@ int bottle_cap_attest(bottle_t* bottle, uint32_t slot, uint128_t nonce, uint64_t
 	}
 
 	//generate HMAC
+	profiling_lap("generate HMAC");
 	sha1_hmac(bottle->table[slot].issuer.bytes, sizeof(bottle->table[slot].issuer), output->authdata.bytes, sizeof(output->authdata), output->hmac);
 	assert(output->expiry  == expiry);
 	assert(output->urights == urightsmask);
@@ -641,6 +715,7 @@ attest_exit:
 	ANNIHILATE(&result, sizeof(result));
 	DO_OR_BAIL(0, NOTHING, bottle_op_epilogue, bottle, 0);
 
+	profiling_stop(NULL);
 	return rv;
 }
 
