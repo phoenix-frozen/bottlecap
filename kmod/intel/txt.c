@@ -71,6 +71,18 @@ static mle_hdr_t *g_mle_hdr_p;
  * state */
 kcpu_state_t kcpu_region;
 
+//XXX: assumes 32-bit
+static inline uint64_t rdtsc(void) __attribute__((always_inline));
+static inline uint64_t rdtsc(void) {
+	uint64_t temp;
+	asm volatile ("rdtsc"
+			: "=A" (temp) //output
+			: //input
+			: //clobber
+	);
+	return temp;
+}
+
 /*
  * Support function to find the offset (in bytes) of the mle header
  * inside the PAL.
@@ -508,7 +520,9 @@ bool txt_launch_environment(acm_hdr_t *sinit, cpu_t *isk_state)
     isk_state->esp = tmpEsp;
 #endif // _WIN32
 
+	uint32_t tsc_pre = rdtsc();
     __getsec_senter((uint32_t)new_sinit, (sinit->size)*4);
+	uint32_t tsc_post = rdtsc();
 
 #ifndef _WIN32
     asm volatile ("resume_target:":);
@@ -529,6 +543,8 @@ bool txt_launch_environment(acm_hdr_t *sinit, cpu_t *isk_state)
 #else  // _WIN32
     __asm { sti }
 #endif // _WIN32
+
+    dbg("PROFILING: timing was 0x%.8x-0x%.8x", tsc_pre, tsc_post);
 
     return true;
 }
