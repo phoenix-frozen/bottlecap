@@ -8,11 +8,15 @@
 
 #ifndef BOTTLE_CAP_TEST
 
+#include <flicker/tpm.h>
+
 #include <params.h>
 #include <util.h>
 
 #include "profiling.h"
 #include "misc.h"
+
+extern int bottle_genkey(tpm_aeskey_t* keyblob, aeskey_t* key);
 
 static int do_bottle_cap(void) {
 	profiling_start(NULL);
@@ -176,6 +180,40 @@ static int do_bottle_cap(void) {
 				}
 
 				*rv = bottle_cap_delete(&bottle, *slot);
+				break;
+			}
+
+		case BOTTLE_TPM_QUOTE:
+			{
+				//yeah, I should use TPM_QUOTE(), but CBF right now
+
+				tpm_pcr_value_t* pcrs = (tpm_pcr_value_t*)pm_reserve(BOTTLE_PCRS, 3 * sizeof(tpm_pcr_value_t));
+				if(pcrs == NULL) {
+					log_event(LOG_LEVEL_ERROR, "BOTTLECAP: Could not allocate PCRs\n");
+					*rv = -ENOMEM;
+					break;
+				}
+
+				for(int i = 17; i <= 19; i++) {
+					if(tpm_pcr_read(2, i, &(pcrs[i - 17])) != 0) {
+						log_event(LOG_LEVEL_ERROR, "BOTTLECAP: Could not get PCR%d\n", i);
+						*rv = -ECRYPTFAIL;
+						break;
+					}
+				}
+			}
+
+		case BOTTLE_GENKEY:
+			{
+				aeskey_t* key = (aeskey_t*)pm_reserve(BOTTLE_KEY, sizeof(aeskey_t));
+				tpm_aeskey_t* keyblob = (tpm_aeskey_t*)pm_reserve(BOTTLE_KEYBLOB, sizeof(tpm_aeskey_t));
+				if(key == NULL || keyblob == NULL) {
+					log_event(LOG_LEVEL_ERROR, "BOTTLECAP: Could not allocate key output fields\n");
+					*rv = -ENOMEM;
+					break;
+				}
+
+				*rv = bottle_genkey(keyblob, key);
 				break;
 			}
 

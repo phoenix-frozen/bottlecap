@@ -719,6 +719,17 @@ attest_exit:
 	return rv;
 }
 
+#ifndef BOTTLE_CAP_TEST
+//benchmarking utility functions
+int bottle_genkey(tpm_aeskey_t* keyblob, aeskey_t* key) {
+	assert(key != NULL);
+	assert(tpmkey != NULL);
+
+	DO_OR_BAIL(ECRYPTFAIL, NOTHING, generate_aes_key, key);
+	return seal_key(keyblob, key);
+}
+#endif //BOTTLE_CAP_TEST
+
 //make some compile-time guarantees about data structure sizes
 #define COMPILE_TIME_ASSERT(pred) switch(0){case 0:case pred:;}
 
