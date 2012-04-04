@@ -80,7 +80,7 @@ static inline uint64_t rdtsc(void) {
 			: //input
 			: //clobber
 	);
-	return temp;
+	return (uint32_t)(temp >> 6);
 }
 
 /*
@@ -544,7 +544,7 @@ bool txt_launch_environment(acm_hdr_t *sinit, cpu_t *isk_state)
     __asm { sti }
 #endif // _WIN32
 
-    dbg("PROFILING: timing was 0x%.8x-0x%.8x", tsc_pre, tsc_post);
+    printk("PROFILING: timing was 0x%.8x-0x%.8x", tsc_pre, tsc_post);
 
     return true;
 }
