@@ -4,7 +4,8 @@
 # $< the name of the related file that caused the action.
 # $* the prefix shared by target and dependent files.
 
-.PHONY: all clean test cscope cscope.files
+.PHONY: all clean test cscope
+.INTERMEDIATE: cscope.files
 
 CC=gcc
 RM=rm -f
