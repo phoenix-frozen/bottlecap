@@ -1,6 +1,7 @@
 # Makefile for the Flicker kernel module for Linux
 
-.PHONY: cscope cscope.files default clean
+.PHONY: cscope default clean
+.INTERMEDIATE: cscope.files
 
 ifneq ($(KERNELRELEASE),)
 # kbuild part of Makefile
