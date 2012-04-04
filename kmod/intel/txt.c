@@ -80,7 +80,7 @@ static inline uint64_t rdtsc(void) {
 			: //input
 			: //clobber
 	);
-	return temp;
+	return (uint32_t)(temp >> 6);
 }
 
 /*
@@ -459,6 +459,8 @@ bool txt_launch_environment(acm_hdr_t *sinit, cpu_t *isk_state)
     //serial_out_string("Executing senter\n\r");
     dbg("executing GETSEC[SENTER]...");
 
+	uint32_t tsc_pre = rdtsc();
+
 /*
     curtime = rdtsc();
     printk(KERN_ALERT "About to GETSEC[SENTER] at %llu\n", curtime);
@@ -520,9 +522,7 @@ bool txt_launch_environment(acm_hdr_t *sinit, cpu_t *isk_state)
     isk_state->esp = tmpEsp;
 #endif // _WIN32
 
-	uint32_t tsc_pre = rdtsc();
     __getsec_senter((uint32_t)new_sinit, (sinit->size)*4);
-	uint32_t tsc_post = rdtsc();
 
 #ifndef _WIN32
     asm volatile ("resume_target:":);
@@ -544,7 +544,9 @@ bool txt_launch_environment(acm_hdr_t *sinit, cpu_t *isk_state)
     __asm { sti }
 #endif // _WIN32
 
-    dbg("PROFILING: timing was 0x%.8x-0x%.8x", tsc_pre, tsc_post);
+	uint32_t tsc_post = rdtsc();
+
+    printk("PROFILING: timing was 0x%.8x-0x%.8x\n", tsc_pre, tsc_post);
 
     return true;
 }

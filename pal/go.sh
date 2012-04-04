@@ -132,6 +132,7 @@ rmdir ramfs
 # Bring eth0 back up
 echo "Reinitialising network..."
 modprobe e1000e
+ifup eth0
 
 # Re-enable (up to 8) APs
 for i in `seq 1 9`
