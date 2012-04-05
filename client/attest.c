@@ -7,13 +7,11 @@
 #include "params.h"
 
 int do_real_work(void) {
-	/* Allocate and encrypt a cap for future tests.
+	/* Set up attestation parameters
 	 */
 
-	//now generate the approprate stuff
-	uint32_t call = 0;
-
 	//call number
+	uint32_t call = 0;
 	if(pm_append(BOTTLE_CALL, (char*)&call, sizeof(call)) != sizeof(call)) {
 		printf("unable to append call number\n");
 		return -ENOMEM;
@@ -38,6 +36,16 @@ int do_real_work(void) {
 	}
 	if(pm_append(BOTTLE_TABLE, data_in, size) != size) {
 		printf("unable to append table\n");
+		return -ENOMEM;
+	}
+
+	//slot number
+	if((size = pm_get_addr(BOTTLE_INDEX, &data_in)) != sizeof(uint32_t)) {
+		printf("BOTTLECAP: Could not get slot\n");
+		return -EINVAL;
+	}
+	if(pm_append(BOTTLE_SLOTCOUNT, data_in, size) != size) {
+		printf("unable to append slot\n");
 		return -ENOMEM;
 	}
 
