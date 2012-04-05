@@ -183,6 +183,47 @@ static int do_bottle_cap(void) {
 				break;
 			}
 
+		case BOTTLE_CAP_ATTEST:
+			{
+				uint32_t* slot;
+				if(pm_get_addr(BOTTLE_INDEX, (char**)&slot) != sizeof(uint32_t)) {
+					log_event(LOG_LEVEL_ERROR, "BOTTLECAP: Could not get slot index\n");
+					*rv = -EINVAL;
+					break;
+				}
+
+				uint128_t* nonce;
+				if(pm_get_addr(BOTTLE_NONCE, (char**)&nonce) != sizeof(*nonce)) {
+					log_event(LOG_LEVEL_ERROR, "BOTTLECAP: Could not get nonce\n");
+					*rv = -EINVAL;
+					break;
+				}
+
+				uint64_t* expiry;
+				if(pm_get_addr(BOTTLE_EXPIRY, (char**)&expiry) != sizeof(*expiry)) {
+					log_event(LOG_LEVEL_ERROR, "BOTTLECAP: Could not get expiry\n");
+					*rv = -EINVAL;
+					break;
+				}
+
+				uint32_t* urights;
+				if(pm_get_addr(BOTTLE_EXPIRY, (char**)&urights) != sizeof(*urights)) {
+					log_event(LOG_LEVEL_ERROR, "BOTTLECAP: Could not get urights\n");
+					*rv = -EINVAL;
+					break;
+				}
+
+				cap_attestation_block_t* ticket = (cap_attestation_block_t*)pm_reserve(BOTTLE_TICKET, sizeof(cap_attestation_block_t));
+				if(slot == NULL) {
+					log_event(LOG_LEVEL_ERROR, "BOTTLECAP: Could not allocate ticket\n");
+					*rv = -ENOMEM;
+					break;
+				}
+
+				*rv = bottle_cap_attest(&bottle, *slot, *nonce, *expiry, *urights, ticket);
+				break;
+			}
+
 		case BOTTLE_TPM_QUOTE:
 			{
 				//yeah, I should use TPM_QUOTE(), but CBF right now

@@ -1,17 +1,31 @@
 #include <stdio.h>
+#include <stdlib.h>
 #include <assert.h>
 
 #include <bottlecap/bottlecalls.h>
 #include <bottlecap/errors.h>
+#include <bottlecap/bottlecap.h>
 
 #include "params.h"
+
+static int generate_aes_key(aeskey_t* key) {
+	assert(key != NULL);
+
+	//printf("TEST Generated key: 0x");
+	for(int i = 0; i < 4; i++) {
+		key->dwords[i] = (uint32_t)rand();
+		//printf("%08x", key->dwords[i]);
+	}
+	//printf("\n");
+	return ESUCCESS;
+}
 
 int do_real_work(void) {
 	/* Set up attestation parameters
 	 */
 
 	//call number
-	uint32_t call = 0;
+	uint32_t call = BOTTLE_CAP_ATTEST;
 	if(pm_append(BOTTLE_CALL, (char*)&call, sizeof(call)) != sizeof(call)) {
 		printf("unable to append call number\n");
 		return -ENOMEM;
@@ -44,9 +58,31 @@ int do_real_work(void) {
 		printf("BOTTLECAP: Could not get slot\n");
 		return -EINVAL;
 	}
-	if(pm_append(BOTTLE_SLOTCOUNT, data_in, size) != size) {
+	if(pm_append(BOTTLE_INDEX, data_in, size) != size) {
 		printf("unable to append slot\n");
 		return -ENOMEM;
+	}
+
+	//rights
+	uint32_t urights = 0;
+	if(pm_append(BOTTLE_CALL, (char*)&urights, sizeof(urights)) != sizeof(urights)) {
+		printf("unable to append urights\n");
+		return -ENOMEM;
+	}
+
+	//nonce
+	uint128_t nonce;
+	generate_aes_key(&nonce);
+	if(pm_append(BOTTLE_NONCE, (char*)&nonce, sizeof(nonce)) != sizeof(nonce)) {
+		printf("BOTTLECAP: Could not append nonce\n");
+		return -EINVAL;
+	}
+
+	//expiry
+	uint64_t expiry = 1000;
+	if(pm_append(BOTTLE_EXPIRY, (char*)&expiry, sizeof(expiry)) != sizeof(expiry)) {
+		printf("BOTTLECAP: Could not append expiry\n");
+		return -EINVAL;
 	}
 
 	return 0;
