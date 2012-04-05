@@ -81,6 +81,7 @@ int main(void) {
 	printf("--------------------------------\n\n");
 
 	int rv = do_real_work();
+	printf("Real work reports: %d\n", rv);
 
 	printf("\n--------------------------------\n");
 	printf("Real work done, unmapping files.\n");
