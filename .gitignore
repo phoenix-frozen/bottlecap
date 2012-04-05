@@ -9,4 +9,6 @@ cscope*
 *.mod.c
 kmod/.tmp_versions
 [Mm]odule*
-flicker.out
+flicker.out*
+flicker.in*
+io

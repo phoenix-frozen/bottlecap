@@ -1,4 +1,4 @@
-for i in `seq 1 $1`; do
+for i in `seq $1 $2`; do
 	echo "run $i..."
 	./go.sh
 	mkdir $i
