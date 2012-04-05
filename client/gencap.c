@@ -50,13 +50,14 @@ int do_real_work(void) {
 	tpm_encrypted_cap_t cryptcap;
 	rv = generate_aes_key(&(cryptcap.iv));
 	assert(rv == 0);
+	uint128_t iv = cryptcap.iv;
 
 	//...and encrypt it
 	aes_context ctx;
 	size_t iv_off = 0;
 	rv = aes_setkey_enc(&ctx, key->bytes, BOTTLE_KEY_SIZE);
 	assert(rv == 0);
-	rv = aes_crypt_cfb128(&ctx, AES_ENCRYPT, sizeof(plaincap), &iv_off, cryptcap.iv.bytes, plaincap.bytes, cryptcap.cap.bytes);
+	rv = aes_crypt_cfb128(&ctx, AES_ENCRYPT, sizeof(plaincap), &iv_off, iv.bytes, plaincap.bytes, cryptcap.cap.bytes);
 	assert(rv == 0);
 	sha1_hmac(key->bytes, sizeof(*key), cryptcap.cap.bytes, sizeof(cryptcap.cap), cryptcap.hmac);
 	cryptcap.key = *keyblob;
@@ -76,25 +77,23 @@ int do_real_work(void) {
 	}
 
 	//bring in bottle header and copy
-	bottle_header_t* header_in;
-	if(pm_get_addr(BOTTLE_HEADER, (char**)&header_in) != sizeof(bottle_header_t)) {
+	char* data_in;
+	int size;
+	if((size = pm_get_addr(BOTTLE_HEADER, &data_in)) <= 0) {
 		printf("BOTTLECAP: Could not get header\n");
 		return -EINVAL;
 	}
-	if(pm_append(BOTTLE_HEADER, (char*)header_in, sizeof(*header_in)) != sizeof(*header_in)) {
+	if(pm_append(BOTTLE_HEADER, data_in, size) != size) {
 		printf("unable to append header\n");
 		return -ENOMEM;
 	}
 
-	printf("BOTTLECAP: table size is %d (that's %d bytes)\n", header_in->size, header_in->size * sizeof(cap_t));
-
 	//bring in bottle table and copy
-	cap_t* table_in;
-	if(pm_get_addr(BOTTLE_TABLE, (char**)&table_in) != header_in->size * sizeof(cap_t)) {
+	if((size = pm_get_addr(BOTTLE_TABLE, &data_in)) <= 0) {
 		printf("BOTTLECAP: Could not get table\n");
 		return -EINVAL;
 	}
-	if(pm_append(BOTTLE_TABLE, (char*)table_in, header_in->size * sizeof(cap_t)) != header_in->size * sizeof(cap_t)) {
+	if(pm_append(BOTTLE_TABLE, data_in, size) != size) {
 		printf("unable to append table\n");
 		return -ENOMEM;
 	}
