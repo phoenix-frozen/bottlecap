@@ -207,7 +207,7 @@ static int do_bottle_cap(void) {
 				}
 
 				uint32_t* urights;
-				if(pm_get_addr(BOTTLE_EXPIRY, (char**)&urights) != sizeof(*urights)) {
+				if(pm_get_addr(BOTTLE_URIGHTS, (char**)&urights) != sizeof(*urights)) {
 					log_event(LOG_LEVEL_ERROR, "BOTTLECAP: Could not get urights\n");
 					*rv = -EINVAL;
 					break;
