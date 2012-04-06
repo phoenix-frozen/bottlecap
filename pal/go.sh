@@ -30,9 +30,9 @@ mkdir -p ramfs
 mount -t tmpfs none ramfs
 
 # Bring down eth0
-#echo "Bringing down eth0..."
-#ifdown eth0
-#modprobe -r e1000e
+echo "Bringing down eth0..."
+ifdown eth0
+modprobe -r e1000e
 
 # Remount root FS read-only
 echo "Remounting root filesystem read-only..."
@@ -130,9 +130,9 @@ umount ramfs
 rmdir ramfs
 
 # Bring eth0 back up
-#echo "Reinitialising network..."
-#modprobe e1000e
-#ifup eth0
+echo "Reinitialising network..."
+modprobe e1000e
+ifup eth0
 
 # Re-enable (up to 8) APs
 for i in `seq 1 9`

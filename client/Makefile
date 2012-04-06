@@ -15,7 +15,7 @@ LD=gcc
 
 INCLUDES := $(CURDIR)/../common $(CURDIR)/../include $(CURDIR)/../extra $(CURDIR)/../tsm $(CURDIR)/libs $(wildcard $(CURDIR)/libs/*)
 
-TARGETS := gencap errcode bottleonly attest timedump
+TARGETS := gencap errcode bottleonly attest expire timedump
 
 CFLAGS := -Wall -O2 -std=gnu99 -march=i686
 CFLAGS += -fno-common -fno-strict-aliasing
