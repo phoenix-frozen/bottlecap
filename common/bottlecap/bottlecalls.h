@@ -1,3 +1,6 @@
+#ifndef __BOTTLECAP_BOTTLECALLS_H__
+#define __BOTTLECAP_BOTTLECALLS_H__
+
 //call number enum
 enum {
 	BOTTLE_NULL = 0,
@@ -33,3 +36,5 @@ enum {
 	BOTTLE_KEY,
 	BOTTLE_KEYBLOB
 };
+
+#endif /* __BOTTLECAP_BOTTLECALLS_H__ */
