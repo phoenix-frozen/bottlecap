@@ -12,6 +12,14 @@
 
 #define BOTTLE_KEY_SIZE 128 //in bits
 
+/** A capability
+ * 
+ * This structure is carefully designed to be an integer number of AES-128
+ * blocks. The magic numbers are placed to foil an attempted bit-manipulation
+ * attack on AES-CFB128: CFB allows arbitrary bit-manipulation of one block at
+ * the expense of randomising every subsequent one, so we use magic numbers as
+ * canaries in case of such manipulation.
+ */
 typedef union {
 	struct {
 		uint32_t magic_top;    //0xCA9A8171

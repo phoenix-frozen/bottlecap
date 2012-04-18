@@ -423,7 +423,7 @@ static int bottle_op_epilogue(bottle_t* bottle, int regen) {
 }
 
 //BOTTLE CREATION/DELETION
-int bottle_init(bottle_t* bottle) {
+int32_t bottle_init(bottle_t* bottle) {
 	profiling_start(NULL);
 
 	if(bottle->header == NULL || bottle->table == NULL)
@@ -471,7 +471,7 @@ int bottle_init(bottle_t* bottle) {
 	profiling_stop(NULL);
 	return ESUCCESS;
 }
-int bottle_destroy(bottle_t* bottle) {
+int32_t bottle_destroy(bottle_t* bottle) {
 	//there's really very little to do here
 	//even blowing away the keys would just be for show
 	//TODO: might become useful once we start using counters
@@ -479,7 +479,7 @@ int bottle_destroy(bottle_t* bottle) {
 }
 
 //BOTTLE STATE FUNCTIONS
-int bottle_query_free_slots(bottle_t* bottle, uint32_t* slots) {
+int32_t bottle_query_free_slots(bottle_t* bottle, uint32_t* slots) {
 	profiling_start(NULL);
 	if(slots == NULL)
 		return -EINVAL;
@@ -503,7 +503,7 @@ int bottle_query_free_slots(bottle_t* bottle, uint32_t* slots) {
 	profiling_stop(NULL);
 	return ESUCCESS;
 }
-int bottle_expire(bottle_t* bottle, uint64_t time, uint32_t* slots) {
+int32_t bottle_expire(bottle_t* bottle, uint64_t time, uint32_t* slots) {
 	profiling_start(NULL);
 	if(slots == NULL)
 		return -EINVAL;
@@ -536,16 +536,16 @@ int bottle_expire(bottle_t* bottle, uint64_t time, uint32_t* slots) {
 
 //INTER-MACHINE BOTTLE MIGRATION FUNCTIONS
 #if 0
-int bottle_export(bottle_t* bottle, tpm_rsakey_t* rsrk, tpm_rsakey_t* brk) {
+int32_t bottle_export(bottle_t* bottle, tpm_rsakey_t* rsrk, tpm_rsakey_t* brk) {
 	return -ENOSYS;
 }
-int bottle_import(bottle_t* bottle, tpm_rsakey_t* brk) {
+int32_t bottle_import(bottle_t* bottle, tpm_rsakey_t* brk) {
 	return -ENOSYS;
 }
 #endif
 
 //CAP INSERTION/DELETION FUNCTIONS
-int bottle_cap_add(bottle_t* bottle, tpm_encrypted_cap_t* cryptcap, uint32_t* slot) {
+int32_t bottle_cap_add(bottle_t* bottle, tpm_encrypted_cap_t* cryptcap, uint32_t* slot) {
 	profiling_start(NULL);
 	//pull relevant data onto our stack
 	//TODO: tpm_encrypted_cap_t contains key in plaintext
@@ -611,7 +611,7 @@ int bottle_cap_add(bottle_t* bottle, tpm_encrypted_cap_t* cryptcap, uint32_t* sl
 	profiling_stop(NULL);
 	return (i < bottle->header->size) ? ESUCCESS : -ENOMEM;
 }
-int bottle_cap_delete(bottle_t* bottle, uint32_t slot) {
+int32_t bottle_cap_delete(bottle_t* bottle, uint32_t slot) {
 	profiling_start(NULL);
 
 	if(slot > bottle->header->size)
@@ -633,16 +633,49 @@ int bottle_cap_delete(bottle_t* bottle, uint32_t slot) {
 	profiling_stop(NULL);
 	return ESUCCESS;
 }
+int32_t bottle_cap_query(bottle_t* bottle, uint32_t slot, uint64_t* expiry, uint32_t* urights, uint32_t* srights, sha1hash_t issuerhash) {
+	assert(bottle != NULL);
+	assert(expiry != NULL);
+	assert(urights != NULL);
+	assert(srights != NULL);
+	assert(issuerhash != NULL);
+
+	profiling_start(NULL);
+
+	if(slot > bottle->header->size)
+		return -EINVAL;
+
+	int32_t rv = ESUCCESS;
+
+	DO_OR_BAIL(0, NOTHING, bottle_op_prologue, bottle);
+
+	//can't attest an empty slot
+	if(bottle->table[slot].expiry == 0) {
+		rv = -EINVAL;
+		goto query_exit;
+	}
+
+	*expiry = bottle->table[slot].expiry;
+	*urights = bottle->table[slot].urights;
+	*srights = bottle->table[slot].srights;
+	sha1(bottle->table[slot].issuer.bytes, sizeof(bottle->table[slot].issuer), issuerhash);
+
+query_exit:
+	DO_OR_BAIL(0, NOTHING, bottle_op_epilogue, bottle, 0);
+
+	profiling_stop(NULL);
+	return rv;
+}
 
 //INTER-BOTTLE CAP MIGRATION
 #if 0
-int bottle_cap_export(bottle_t* bottle, uint32_t slot, tpm_rsakey_t* rbrk, int32_t move, tpm_encrypted_cap_t* cap) {
+int32_t bottle_cap_export(bottle_t* bottle, uint32_t slot, tpm_rsakey_t* rbrk, int32_t move, tpm_encrypted_cap_t* cap) {
 	return -ENOSYS;
 }
 #endif
 
 //CAP INVOCATION FUNCTIONS
-int bottle_cap_attest(bottle_t* bottle, uint32_t slot, uint128_t nonce, uint64_t expiry, uint32_t urightsmask, cap_attestation_block_t* output) {
+int32_t bottle_cap_attest(bottle_t* bottle, uint32_t slot, uint128_t nonce, uint64_t expiry, uint32_t urightsmask, cap_attestation_block_t* output) {
 	profiling_start(NULL);
 	if(output == NULL)
 		return -ENOMEM;
@@ -664,26 +697,22 @@ int bottle_cap_attest(bottle_t* bottle, uint32_t slot, uint128_t nonce, uint64_t
 	}
 
 	//trying to include rights you don't have is an error
-	if((urightsmask & (~(bottle->table[slot].urights))) != 0) {
-		rv = -EINVAL;
-		goto attest_exit;
-	}
-
+	urightsmask &= bottle->table[slot].urights;
 	if(bottle->table[slot].expiry < expiry)
 		expiry = bottle->table[slot].expiry;
 
 	//storage area for unencrypted authdata
 	cap_attestation_block_t result;
 
-	//fill in everything except the proof, which we don't yet have
-	result.authdata.oid = bottle->table[slot].oid;
-	result.authdata.expiry = expiry;
-	result.authdata.amagic = ATTEST_MAGIC;
+	//fill in our buffer, ready for encryption
+	result.authdata.oid     = bottle->table[slot].oid;
+	result.authdata.expiry  = expiry;
+	result.authdata.amagic  = ATTEST_MAGIC;
 	result.authdata.urights = bottle->table[slot].urights & urightsmask; //this is probably redundant, given the check above
-	result.authdata.cmagic = CAP_MAGIC_TOP;
+	result.authdata.cmagic  = CAP_MAGIC_TOP;
 
 	//getting this far means we can start writing to the output buffer. write the unencrypted data first
-	output->nonce = nonce;
+	output->nonce   = nonce;
 	output->expiry  = expiry;
 	output->urights = urightsmask;
 
@@ -692,7 +721,7 @@ int bottle_cap_attest(bottle_t* bottle, uint32_t slot, uint128_t nonce, uint64_t
 	//initialise AES state
 	aes_context ctx;
 	size_t iv_off = 0;
-	uint128_t iv = nonce;;
+	uint128_t iv  = nonce;;
 	//Note: we're using the CFB128 mode, so we use _enc even to decrypt
 	if(aes_setkey_enc(&ctx, bottle->table[slot].issuer.bytes, BOTTLE_KEY_SIZE) != 0) {
 		rv = -ECRYPTFAIL;
@@ -708,6 +737,8 @@ int bottle_cap_attest(bottle_t* bottle, uint32_t slot, uint128_t nonce, uint64_t
 	//generate HMAC
 	profiling_lap("generate HMAC");
 	sha1_hmac(bottle->table[slot].issuer.bytes, sizeof(bottle->table[slot].issuer), output->authdata.bytes, sizeof(output->authdata), output->hmac);
+	profiling_lap("generate issuer key hash");
+	sha1(bottle->table[slot].issuer.bytes, sizeof(bottle->table[slot].issuer), output->issuer_hash);
 	assert(output->expiry  == expiry);
 	assert(output->urights == urightsmask);
 
@@ -721,7 +752,7 @@ attest_exit:
 
 #ifndef BOTTLE_CAP_TEST
 //benchmarking utility functions
-int bottle_genkey(tpm_aeskey_t* keyblob, aeskey_t* key) {
+int32_t bottle_genkey(tpm_aeskey_t* keyblob, aeskey_t* key) {
 	assert(key != NULL);
 	assert(tpmkey != NULL);
 

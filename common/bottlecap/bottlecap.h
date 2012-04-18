@@ -90,6 +90,18 @@ int32_t bottle_cap_add(bottle_t* bottle, tpm_encrypted_cap_t* cap, uint32_t* slo
  * @return       Error code.
  */
 int32_t bottle_cap_delete(bottle_t* bottle, uint32_t slot);
+/**
+ * Asks for the rights and expiry date of a cap.
+ * 
+ * @param bottle     The bottle to operate on.
+ * @param slot       The slot to clear.
+ * @param expiry     Output: The cap's expiry.
+ * @param urights    Output: The cap's rights mask.
+ * @param srights    Output: The cap's flags mask.
+ * @param issuerhash Output: The cap's issuer key hash.
+ * @return           Error code.
+ */
+int32_t bottle_cap_query(bottle_t* bottle, uint32_t slot, uint64_t* expiry, uint32_t* urights, uint32_t* srights, sha1hash_t issuerhash);
 
 //INTER-BOTTLE CAP MIGRATION
 //TODO: left for later
@@ -113,6 +125,12 @@ int32_t bottle_cap_delete(bottle_t* bottle, uint32_t slot);
 /**
  * Data structure filled by bottle_cap_attest -- read the comment for that funtion
  * before going any further.
+ * 
+ * The authdata block is carefully designed to be an integer number of AES-128
+ * blocks. the magic numbers are placed to foil an attempted bit-manipulation
+ * attack on AES-CFB128: CFB allows arbitrary bit-manipulation of one block at
+ * the expense of randomising every subsequent one, so we use magic numbers as
+ * canaries in case of such manipulation.
  */
 typedef struct {
 	uint128_t nonce; //nonce, in plaintext
@@ -127,7 +145,8 @@ typedef struct {
 		unsigned char bytes[32];
 	} authdata; //{authority data}_cap.issuer, using nonce as IV
 
-	sha1hash_t hmac; //SHA1(authdata, issuer)
+	sha1hash_t hmac;        //HMAC_SHA1(authdata, issuer)
+	sha1hash_t issuer_hash; //SHA1(issuer)
 
 	uint64_t expiry;  //repeat of the same fields as above, in plaintext, for easy introspection.
 	uint32_t urights; // should not be used by any security-sensitive code (which should be able

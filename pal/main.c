@@ -601,6 +601,12 @@ int main(void) {
 	printf("\thmac: memcmp(%p, %p, %d): %d\n", sha1data, attest_block.hmac, sizeof(sha1data), rv);
 	assert(rv == 0);
 
+	//check the issuer key hash
+	sha1(plaincap.issuer.bytes, sizeof(plaincap.issuer.bytes), sha1data);
+	rv = memcmp(sha1data, attest_block.issuer_hash, sizeof(sha1data));
+	printf("\thash: memcmp(%p, %p, %d): %d\n", sha1data, attest_block.issuer_hash, sizeof(sha1data), rv);
+	assert(rv == 0);
+
 	//decrypt the encrypted block
 	cap_attestation_block_t decrypted_attest_block;
 	iv_off = 0;
