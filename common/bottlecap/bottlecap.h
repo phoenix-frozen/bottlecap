@@ -102,6 +102,7 @@ int32_t bottle_cap_delete(bottle_t* bottle, uint32_t slot);
  * @return           Error code.
  */
 int32_t bottle_cap_query(bottle_t* bottle, uint32_t slot, uint64_t* expiry, uint32_t* urights, uint32_t* srights, sha1hash_t issuerhash);
+//TODO: add copy-restricted, in case you want another version of a cap that has fewer rights or expires sooner
 
 //INTER-BOTTLE CAP MIGRATION
 //TODO: left for later
@@ -109,7 +110,10 @@ int32_t bottle_cap_query(bottle_t* bottle, uint32_t slot, uint64_t* expiry, uint
  * Exports a capability for migration to another bottle. (The remote
  * bottle uses bottle_cap_add to import it.)
  * 
- * TODO: for performance reasons, this will need to be able to export multiple caps
+ * TODO: for performance reasons, this will need to be
+ *       able to export multiple caps
+ * TODO: might also want to export-restricted
+ *       (ie not export all of your rights, only some)
  * 
  * @param bottle The bottle to operate on.
  * @param slot   The slot containing the cap to export.
