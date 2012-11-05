@@ -1,0 +1,17 @@
+Feature-completeness:
+* Write tpm_unbind()
+ * Cap-add should call it
+* Authorised-migration procotol
+* Write README
+* Audit licenses
+
+Feature-expansion:
+* Issuer-key-based secure channel establishment (eg. PAKE)
+ * Using TPM randomness!
+* Refine ticket generation protocol
+ * Nonces may come from the wrong place and/or sources of randomness need
+   to be indicated in ticket.
+
+Cleanliness:
+* Rewrite directory structure / buildsystem to pull in Flicker and PolarSSL
+  as external dependencies.
