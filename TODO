@@ -15,3 +15,6 @@ Feature-expansion:
 Cleanliness:
 * Rewrite directory structure / buildsystem to pull in Flicker and PolarSSL
   as external dependencies.
+
+Legalities:
+* Finish license audit
